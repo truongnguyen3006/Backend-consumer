@@ -211,8 +211,8 @@ public class OrderService {
                         .stream()
                         .map(this::mapToOrderLineItemsDto) // Tái sử dụng logic map
                         .toList())
-                .totalPrice(order.getTotalPrice()) // ✅ Map dữ liệu
-                .orderDate(order.getOrderDate())   // ✅ Map dữ liệu
+                .totalPrice(order.getTotalPrice())
+                .orderDate(order.getOrderDate())
                 .build();
     }
 
@@ -406,7 +406,7 @@ public class OrderService {
         orderLineItems.setPrice(productInfo.getPrice());
         orderLineItems.setProductName(productInfo.getName());
 
-        // ✅ GÁN GIÁ TRỊ MỚI TỪ CACHE VÀO ENTITY
+        // GÁN GIÁ TRỊ MỚI TỪ CACHE VÀO ENTITY
         orderLineItems.setColor(productInfo.getColor());
         orderLineItems.setSize(productInfo.getSize());
 
