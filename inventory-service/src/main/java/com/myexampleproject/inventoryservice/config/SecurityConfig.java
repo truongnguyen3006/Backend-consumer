@@ -20,7 +20,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/inventory/adjust").hasRole("ADMIN")
+//                        .requestMatchers(HttpMethod.POST, "/api/inventory/adjust").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.POST, "/api/inventory/adjust").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/inventory/**").permitAll()
                         .anyRequest().authenticated()
                 )

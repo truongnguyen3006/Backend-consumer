@@ -32,17 +32,26 @@ public class OrderController {
 
     private final OrderService orderService;
 
+//    @PostMapping
+//    @ResponseStatus(HttpStatus.ACCEPTED)
+//    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest, Principal principal) {
+//        log.info("Placing Order...");
+//        if (principal == null) {
+//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để đặt hàng");
+//        }
+//        // Lấy ID thật từ Token
+//        String userId = principal.getName();
+//        String orderNumber = orderService.placeOrder(orderRequest, userId);
+//        // Trả về JSON: { "orderNumber": "uuid-..." }
+//        return Map.of("orderNumber", orderNumber, "message", "Order Received");
+//    }
+    //test mới
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest, Principal principal) {
+    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest) {
         log.info("Placing Order...");
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để đặt hàng");
-        }
-        // Lấy ID thật từ Token
-        String userId = principal.getName();
+        String userId = "test-user";
         String orderNumber = orderService.placeOrder(orderRequest, userId);
-        // Trả về JSON: { "orderNumber": "uuid-..." }
         return Map.of("orderNumber", orderNumber, "message", "Order Received");
     }
 

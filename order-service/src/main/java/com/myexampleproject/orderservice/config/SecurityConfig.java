@@ -25,8 +25,10 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/order").authenticated()
+//                        .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
+//                        .requestMatchers(HttpMethod.POST, "/api/order").authenticated()
+                       .requestMatchers(HttpMethod.POST, "/api/order").permitAll()
                         .anyRequest().authenticated() // <-- BẮT BUỘC TẤT CẢ
                 )
 
