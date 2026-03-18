@@ -15,6 +15,8 @@ import java.util.Arrays;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+// Consumer-side handler for reservation lifecycle commands defined in lsf-contracts.
+// Order service publishes confirm/release commands; inventory service owns the resource state.
 public class InventoryReservationCommandListener {
 
     private final InventoryQuotaService inventoryQuotaService;
@@ -31,7 +33,7 @@ public class InventoryReservationCommandListener {
 
             log.info("Reservation command payload class={}",
                     payload == null ? "null" : payload.getClass().getName());
-
+            // Map framework reservation commands to quota operations on the inventory side.
             switch (topic) {
                 case "inventory-reservation-confirm-topic" -> {
                     ConfirmReservationCommand command = toConfirmCommand(payload);
@@ -62,7 +64,7 @@ public class InventoryReservationCommandListener {
         Object normalized = normalizePayload(payload);
         return objectMapper.convertValue(normalized, ReleaseReservationCommand.class);
     }
-
+    // Integration helper for local/demo environments where payloads may arrive in different serialized forms.
     private Object normalizePayload(Object payload) throws Exception {
         if (payload == null) {
             return null;

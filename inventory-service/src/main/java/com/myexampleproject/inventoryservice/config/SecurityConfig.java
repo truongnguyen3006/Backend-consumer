@@ -20,6 +20,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        // Demo-only setting to simplify local stock seeding during framework integration tests.
 //                        .requestMatchers(HttpMethod.POST, "/api/inventory/adjust").hasRole("ADMIN")
                                 .requestMatchers(HttpMethod.POST, "/api/inventory/adjust").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/inventory/**").permitAll()

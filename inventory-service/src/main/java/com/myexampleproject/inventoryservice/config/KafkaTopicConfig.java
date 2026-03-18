@@ -110,7 +110,7 @@ public class KafkaTopicConfig {
                 .build();
     }
 
-
+    // Topics introduced for the LSF-based reservation lifecycle.
     //thêm 2 bean mới
     @Bean
     public NewTopic inventoryReservationConfirmTopic() {

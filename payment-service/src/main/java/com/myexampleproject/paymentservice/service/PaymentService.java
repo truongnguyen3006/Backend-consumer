@@ -24,6 +24,8 @@ public class PaymentService {
 //            groupId = "payment-group",
 //            containerFactory = "paymentKafkaListenerContainerFactory"
 //    )
+
+    // Kafka listener now relies on lsf-kafka-starter instead of a service-specific consumer configuration.
     @KafkaListener(
             topics = "order-validated-topic",
             groupId = "payment-group"
@@ -84,6 +86,7 @@ public class PaymentService {
 //    }
 
     //test
+    // Local demo rule only: deterministic payment outcome to exercise confirm/release scenarios.
     private boolean processPayment(OrderValidatedEvent event) {
         int totalQty = event.getItems()
                 .stream()

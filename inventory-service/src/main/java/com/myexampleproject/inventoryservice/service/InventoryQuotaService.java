@@ -16,6 +16,9 @@ import java.time.Duration;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+// Adapter layer between ecommerce inventory flow and LSF quota framework.
+// This service maps business identifiers (order, SKU) into quotaKey/requestId
+// and delegates reserve/confirm/release to QuotaService.
 public class InventoryQuotaService {
 
     private static final String TENANT = "shopA";
@@ -26,6 +29,8 @@ public class InventoryQuotaService {
     @Value("${lsf.quota.default-hold-seconds:120}")
     private int defaultHoldSeconds;
 
+    // Reserve quota instead of deducting physical stock immediately.
+    // physicalStock is used as the current quota limit for this SKU.
     public InventoryCheckResult reserve(String orderNumber, OrderLineItemRequest item, int physicalStock) {
         String skuCode = item.getSkuCode();
         String quotaKey = quotaKey(skuCode);
@@ -74,10 +79,11 @@ public class InventoryQuotaService {
         return result;
     }
 
+    // Standardized quota key used by the consumer project when integrating LSF quota.
     public String quotaKey(String skuCode) {
         return TENANT + ":" + RESOURCE_TYPE + ":" + skuCode;
     }
-
+    // requestId is derived from workflowId + resourceId to keep reservation idempotent per order item.
     public String requestId(String workflowId, String resourceId) {
         return workflowId + ":" + resourceId;
     }

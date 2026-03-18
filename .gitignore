@@ -47,3 +47,5 @@ mysql_keycloak_data/
 *.iml
 # Logs
 *.log
+data/
+*.zip

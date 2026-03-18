@@ -74,6 +74,8 @@ public class InventoryTopology {
                 .mapValues(InventoryAdjustmentEvent::getAdjustmentQuantity)
                 .repartition(Repartitioned.with(stringSerde, intSerde).withName("adjust-repartition-by-sku"));
 
+        // This state store still tracks physical/baseline stock.
+        // Temporary reservation state is handled by LSF quota, not by direct deduction here.
         KStream<String, Integer> inventoryChanges = productStream.merge(adjustStream);
         inventoryChanges
                 .groupByKey(Grouped.with(stringSerde, intSerde))
@@ -90,7 +92,9 @@ public class InventoryTopology {
                                 .withKeySerde(stringSerde)
                                 .withValueSerde(intSerde)
                 );
-
+        // LSF integration point:
+        // inventory check no longer deducts stock directly in the state store.
+        // Instead, it delegates resource holding to the LSF quota framework.
         builder.stream("inventory-check-request-topic", Consumed.with(stringSerde, checkRequestSerde))
                 .transform(
                         () -> new Transformer<String, InventoryCheckRequest, KeyValue<String, InventoryCheckResult>>() {
@@ -107,7 +111,7 @@ public class InventoryTopology {
                                 int currentStock = stockWithTimestamp != null && stockWithTimestamp.value() != null
                                         ? stockWithTimestamp.value()
                                         : 0;
-
+                                // Reserve against quota using the current physical stock as the effective limit.
                                 InventoryCheckResult result = inventoryQuotaService.reserve(
                                         request.getOrderNumber(),
                                         request.getItem(),

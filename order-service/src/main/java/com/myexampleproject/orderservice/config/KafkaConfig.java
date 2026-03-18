@@ -17,6 +17,7 @@ public class KafkaConfig {
     }
 
     //mới
+    // Reservation lifecycle topics added for LSF framework integration.
     @Bean
     public NewTopic inventoryReservationConfirmTopic() {
         return TopicBuilder.name("inventory-reservation-confirm-topic")

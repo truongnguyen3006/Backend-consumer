@@ -25,6 +25,8 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
+                        // Demo-only setting to simplify framework integration testing.
+                        // Restore authenticated() for real secured flow.
 //                        .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
 //                        .requestMatchers(HttpMethod.POST, "/api/order").authenticated()

@@ -70,6 +70,8 @@ public class OrderService {
                 .register(meterRegistry);
     }
 
+    // Entry point for asynchronous order processing.
+    // The order request is accepted first; persistence and downstream workflow continue via Kafka.
     public String placeOrder(OrderRequest orderRequest, String userId) {
         String orderNumber = UUID.randomUUID().toString();
         log.info("Order {} received. Starting Inventory SAGA...", orderNumber);
@@ -152,7 +154,9 @@ public class OrderService {
 //            }
 //        }
 
-
+    // LSF integration note:
+    // the saga waits for all inventory results before deciding success/failure,
+    // avoiding early failure when an order contains multiple SKUs.
     @KafkaListener(topics = "inventory-check-result-topic", groupId = "order-saga-group")
     public void handleInventoryCheckResult(List<ConsumerRecord<String, Object>> records) {
         log.info("SAGA: Received batch of {} inventory results", records.size());
@@ -384,7 +388,8 @@ public class OrderService {
         return objectMapper.convertValue(payload, clazz);
     }
 
-
+    // Consumer-project orchestration logic:
+    // order data is still assembled here, while reservation itself is delegated to inventory + LSF quota.
     @Transactional
     protected void handleOrderPlacement(OrderPlacedEvent event) {
         log.info("Async Save: Saving Order {} to database...", event.getOrderNumber());
@@ -517,6 +522,7 @@ public class OrderService {
 //        }
 //    }
 
+    // Changed from direct inventory compensation to reservation release command.
     @Transactional
     protected void handleOrderFailure(OrderFailedEvent failedEvent) {
         log.warn("INVENTORY FAILED: Received feedback for Order {}. Reason: {}",
@@ -560,7 +566,7 @@ public class OrderService {
 //                    order.getOrderNumber(), order.getStatus());
 //        }
 //    }
-
+    // Payment success now confirms previously reserved quota instead of relying on early stock deduction.
     @Transactional
     protected void handlePaymentSuccess(PaymentProcessedEvent paymentProcessedEvent) {
         log.info("SUCCESS: Received PaymentProcessedEvent for Order {}. Payment ID: {}. Updating status...",
@@ -611,6 +617,7 @@ public class OrderService {
 //        }
 //    }
 
+    // Payment failure now releases reservation through lsf-contracts command flow.
     @Transactional
     protected void handlePaymentFailure(PaymentFailedEvent paymentFailedEvent) {
         log.warn("FAILED: Received PaymentFailedEvent for Order {}. Reason: {}. Updating status...",
@@ -685,6 +692,7 @@ public class OrderService {
     }
 
     //mới
+    // Publish standardized reservation confirmation commands defined by the LSF framework.
     private void publishConfirmCommands(Order order) {
         for (OrderLineItems item : order.getOrderLineItemsList()) {
             ConfirmReservationCommand command = ConfirmReservationCommand.builder()
@@ -698,6 +706,7 @@ public class OrderService {
         }
     }
 
+    // Publish standardized reservation release commands defined by the LSF framework.
     private void publishReleaseCommands(Order order, String reason) {
         for (OrderLineItems item : order.getOrderLineItemsList()) {
             ReleaseReservationCommand command = ReleaseReservationCommand.builder()

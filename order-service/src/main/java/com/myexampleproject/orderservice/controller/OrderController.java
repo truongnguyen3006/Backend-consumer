@@ -46,6 +46,8 @@ public class OrderController {
 //        return Map.of("orderNumber", orderNumber, "message", "Order Received");
 //    }
     //test mới
+    // Local demo endpoint variant: bypasses authenticated principal and uses a fixed test user.
+    // Restore token-based user resolution when leaving demo mode.
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest) {
