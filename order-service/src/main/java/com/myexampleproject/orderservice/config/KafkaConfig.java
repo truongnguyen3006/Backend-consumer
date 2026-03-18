@@ -15,4 +15,21 @@ public class KafkaConfig {
                 .replicas(1)
                 .build();
     }
+
+    //mới
+    @Bean
+    public NewTopic inventoryReservationConfirmTopic() {
+        return TopicBuilder.name("inventory-reservation-confirm-topic")
+                .partitions(10)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic inventoryReservationReleaseTopic() {
+        return TopicBuilder.name("inventory-reservation-release-topic")
+                .partitions(10)
+                .replicas(1)
+                .build();
+    }
 }
