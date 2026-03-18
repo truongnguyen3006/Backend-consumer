@@ -19,10 +19,14 @@ public class PaymentService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
     // Listener để nhận sự kiện từ Inventory Service
+//    @KafkaListener(
+//            topics = "order-validated-topic",
+//            groupId = "payment-group",
+//            containerFactory = "paymentKafkaListenerContainerFactory"
+//    )
     @KafkaListener(
             topics = "order-validated-topic",
-            groupId = "payment-group",
-            containerFactory = "paymentKafkaListenerContainerFactory"
+            groupId = "payment-group"
     )
     public void handleOrderValidation(List<ConsumerRecord<String, Object>> records) {
         log.info("Received batch of {} validated events", records.size());
@@ -73,9 +77,22 @@ public class PaymentService {
         }
     }
 
+//    private boolean processPayment(OrderValidatedEvent event) {
+//        log.info("Simulating payment processing for Order {}...", event.getOrderNumber());
+//        // Thêm logic phức tạp hơn nếu muốn (ví dụ: random thành công/thất bại)
+//        return true; // Luôn trả về thành công cho đơn giản
+//    }
+
+    //test
     private boolean processPayment(OrderValidatedEvent event) {
-        log.info("Simulating payment processing for Order {}...", event.getOrderNumber());
-        // Thêm logic phức tạp hơn nếu muốn (ví dụ: random thành công/thất bại)
-        return true; // Luôn trả về thành công cho đơn giản
+        int totalQty = event.getItems()
+                .stream()
+                .mapToInt(item -> item.getQuantity())
+                .sum();
+
+        // Test local:
+        // đơn có tổng quantity = 2 => fail
+        // các đơn khác => success
+        return totalQty != 2;
     }
 }

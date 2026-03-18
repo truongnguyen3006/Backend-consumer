@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myexampleproject.common.dto.OrderLineItemRequest;
@@ -24,7 +23,6 @@ import com.myexampleproject.common.event.InventoryCheckResult;
 import org.springframework.data.redis.core.RedisTemplate; // <-- Bạn sẽ cần Redis
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import com.myexampleproject.common.dto.OrderLineItemsDto;
 import com.myexampleproject.orderservice.dto.OrderRequest;
@@ -35,6 +33,9 @@ import com.myexampleproject.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import io.micrometer.core.instrument.Counter; // <-- THÊM IMPORT NÀY
 import io.micrometer.core.instrument.MeterRegistry; // <-- THÊM IMPORT NÀY
+
+import com.myorg.lsf.contracts.quota.ConfirmReservationCommand;
+import com.myorg.lsf.contracts.quota.ReleaseReservationCommand;
 
 @Service
 @RequiredArgsConstructor
@@ -83,74 +84,142 @@ public class OrderService {
     // ==========================================================
     // SAGA LISTENER: Xử lý kết quả kiểm kê (ĐÃ SỬA LỖI 2 ITEMS)
     // ==========================================================
+//    @KafkaListener(topics = "inventory-check-result-topic", groupId = "order-saga-group")
+//    public void handleInventoryCheckResult(List<ConsumerRecord<String, Object>> records) {
+//        log.info("SAGA: Received batch of {} inventory results", records.size());
+//
+//        for (ConsumerRecord<String, Object> record : records) {
+//            try {
+//                Object payload = record.value();
+//                InventoryCheckResult result = objectMapper.convertValue(payload, InventoryCheckResult.class);
+//
+//                String orderNumber = result.getOrderNumber();
+//                String sagaKey = SAGA_PREFIX + orderNumber;
+//
+//                log.info("SAGA: Result for Order {}, SKU {}: Success={}",
+//                        orderNumber, result.getItem().getSkuCode(), result.isSuccess());
+//
+//                // 1. Tăng biến đếm (Atomic Increment)
+//                // Lệnh này an toàn kể cả khi key chưa có (nó sẽ tạo mới và set = 1)
+//                Long receivedCount = redisTemplate.opsForHash().increment(sagaKey, "receivedItems", 1);
+//
+//                // 2. Kiểm tra xem đã fail trước đó chưa
+//                Object failedState = redisTemplate.opsForHash().get(sagaKey, "failed");
+//                boolean alreadyFailed = (failedState != null) && (Boolean) failedState;
+//
+//                if (alreadyFailed) {
+//                    log.info("SAGA: Order {} already marked failed. Ignoring.", orderNumber);
+//                    continue;
+//                }
+//
+//                // 3. Nếu item này thất bại
+//                if (!result.isSuccess()) {
+//                    log.warn("SAGA: Inventory check FAILED for Order {}, SKU {}. Reason: {}",
+//                            orderNumber, result.getItem().getSkuCode(), result.getReason());
+//
+//                    redisTemplate.opsForHash().put(sagaKey, "failed", true);
+//                    kafkaTemplate.send("order-failed-topic", orderNumber, new OrderFailedEvent(orderNumber, result.getReason()));
+//                    continue;
+//                }
+//
+//                // 4. Kiểm tra tổng số items (SỬA LỖI CASTING TẠI ĐÂY)
+//                Object totalObj = redisTemplate.opsForHash().get(sagaKey, "totalItems");
+//                if (totalObj == null) {
+//                    // Có thể do Redis hết hạn hoặc race condition cực hiếm
+//                    log.warn("SAGA: State missing for order {}. Waiting...", orderNumber);
+//                    continue;
+//                }
+//
+//                // Helper để chuyển đổi số an toàn (tránh ClassCastException Long vs Integer)
+//                int totalItems = parseIntegerSafely(totalObj);
+//
+//                log.debug("SAGA: Order {} progress: {}/{}", orderNumber, receivedCount, totalItems);
+//
+//                if (receivedCount == totalItems) {
+//                    log.info("SAGA COMPLETE: Order {} passed all inventory checks.", orderNumber);
+//
+//                    Object requestObj = redisTemplate.opsForHash().get(sagaKey, "request");
+//                    OrderRequest originalRequest = objectMapper.convertValue(requestObj, OrderRequest.class);
+//
+//                    kafkaTemplate.send("order-validated-topic", orderNumber,
+//                            new OrderValidatedEvent(orderNumber, originalRequest.getItems()));
+//
+//                    redisTemplate.delete(sagaKey);
+//                }
+//
+//            } catch (Exception e) {
+//                log.error("SAGA ERROR: Key: {}", record.key(), e);
+//            }
+//        }
+
+
     @KafkaListener(topics = "inventory-check-result-topic", groupId = "order-saga-group")
     public void handleInventoryCheckResult(List<ConsumerRecord<String, Object>> records) {
         log.info("SAGA: Received batch of {} inventory results", records.size());
 
         for (ConsumerRecord<String, Object> record : records) {
             try {
-                Object payload = record.value();
-                InventoryCheckResult result = objectMapper.convertValue(payload, InventoryCheckResult.class);
-
+                InventoryCheckResult result = objectMapper.convertValue(record.value(), InventoryCheckResult.class);
                 String orderNumber = result.getOrderNumber();
                 String sagaKey = SAGA_PREFIX + orderNumber;
 
                 log.info("SAGA: Result for Order {}, SKU {}: Success={}",
                         orderNumber, result.getItem().getSkuCode(), result.isSuccess());
 
-                // 1. Tăng biến đếm (Atomic Increment)
-                // Lệnh này an toàn kể cả khi key chưa có (nó sẽ tạo mới và set = 1)
                 Long receivedCount = redisTemplate.opsForHash().increment(sagaKey, "receivedItems", 1);
-
-                // 2. Kiểm tra xem đã fail trước đó chưa
-                Object failedState = redisTemplate.opsForHash().get(sagaKey, "failed");
-                boolean alreadyFailed = (failedState != null) && (Boolean) failedState;
-
-                if (alreadyFailed) {
-                    log.info("SAGA: Order {} already marked failed. Ignoring.", orderNumber);
-                    continue;
-                }
-
-                // 3. Nếu item này thất bại
                 if (!result.isSuccess()) {
-                    log.warn("SAGA: Inventory check FAILED for Order {}, SKU {}. Reason: {}",
-                            orderNumber, result.getItem().getSkuCode(), result.getReason());
-
                     redisTemplate.opsForHash().put(sagaKey, "failed", true);
-                    kafkaTemplate.send("order-failed-topic", orderNumber, new OrderFailedEvent(orderNumber, result.getReason()));
-                    continue;
+                    redisTemplate.opsForHash().put(sagaKey, "failureReason", result.getReason());
+                    log.warn("SAGA: Marked order {} as failed because SKU {} was rejected. reason={}",
+                            orderNumber, result.getItem().getSkuCode(), result.getReason());
                 }
 
-                // 4. Kiểm tra tổng số items (SỬA LỖI CASTING TẠI ĐÂY)
                 Object totalObj = redisTemplate.opsForHash().get(sagaKey, "totalItems");
                 if (totalObj == null) {
-                    // Có thể do Redis hết hạn hoặc race condition cực hiếm
                     log.warn("SAGA: State missing for order {}. Waiting...", orderNumber);
                     continue;
                 }
 
-                // Helper để chuyển đổi số an toàn (tránh ClassCastException Long vs Integer)
                 int totalItems = parseIntegerSafely(totalObj);
-
                 log.debug("SAGA: Order {} progress: {}/{}", orderNumber, receivedCount, totalItems);
 
-                if (receivedCount == totalItems) {
-                    log.info("SAGA COMPLETE: Order {} passed all inventory checks.", orderNumber);
-
-                    Object requestObj = redisTemplate.opsForHash().get(sagaKey, "request");
-                    OrderRequest originalRequest = objectMapper.convertValue(requestObj, OrderRequest.class);
-
-                    kafkaTemplate.send("order-validated-topic", orderNumber,
-                            new OrderValidatedEvent(orderNumber, originalRequest.getItems()));
-
-                    redisTemplate.delete(sagaKey);
+                if (receivedCount == null || receivedCount < totalItems) {
+                    continue;
                 }
 
+                boolean failed = parseBooleanSafely(redisTemplate.opsForHash().get(sagaKey, "failed"));
+                if (failed) {
+                    Object reasonObj = redisTemplate.opsForHash().get(sagaKey, "failureReason");
+                    String reason = reasonObj != null ? String.valueOf(reasonObj) : "Inventory reservation failed";
+                    kafkaTemplate.send("order-failed-topic", orderNumber, new OrderFailedEvent(orderNumber, reason));
+                    log.warn("SAGA COMPLETE: Order {} failed after collecting all inventory results. reason={}",
+                            orderNumber, reason);
+                } else {
+                    Object requestObj = redisTemplate.opsForHash().get(sagaKey, "request");
+                    OrderRequest originalRequest = objectMapper.convertValue(requestObj, OrderRequest.class);
+                    kafkaTemplate.send("order-validated-topic", orderNumber,
+                            new OrderValidatedEvent(orderNumber, originalRequest.getItems()));
+                    log.info("SAGA COMPLETE: Order {} passed all inventory checks.", orderNumber);
+                }
+
+                redisTemplate.delete(sagaKey);
             } catch (Exception e) {
                 log.error("SAGA ERROR: Key: {}", record.key(), e);
             }
         }
     }
+
+    //mới
+    private boolean parseBooleanSafely(Object obj) {
+        if (obj instanceof Boolean bool) {
+            return bool;
+        }
+        if (obj instanceof String str) {
+            return Boolean.parseBoolean(str);
+        }
+        return false;
+    }
+
     // --- HELPER METHOD AN TOÀN ---
     private int parseIntegerSafely(Object obj) {
         if (obj instanceof Integer) {
@@ -337,16 +406,30 @@ public class OrderService {
             // 1. Lấy thông tin sản phẩm từ Cache
             Object cachedData = redisTemplate.opsForHash().get(PRODUCT_CACHE_KEY, itemReq.getSkuCode());
 
-            if (cachedData == null) {
-                // Lỗi nghiêm trọng: Sản phẩm không có trong cache
-                // (Trong thực tế, bạn có thể gọi API dự phòng, hoặc FAILED đơn hàng)
-                log.error("KHÔNG TÌM THẤY CACHE cho SKU: {}", itemReq.getSkuCode());
-                // Tạm thời FAILED đơn hàng này
-                throw new RuntimeException("Product not in cache: " + itemReq.getSkuCode());
-            }
+//            if (cachedData == null) {
+//                // Lỗi nghiêm trọng: Sản phẩm không có trong cache
+//                // (Trong thực tế, bạn có thể gọi API dự phòng, hoặc FAILED đơn hàng)
+//                log.error("KHÔNG TÌM THẤY CACHE cho SKU: {}", itemReq.getSkuCode());
+//                // Tạm thời FAILED đơn hàng này
+//                throw new RuntimeException("Product not in cache: " + itemReq.getSkuCode());
+//            }
 
             // 2. Convert cache (là ProductCacheEvent)
             ProductCacheEvent productInfo = objectMapper.convertValue(cachedData, ProductCacheEvent.class);
+//            test
+            if (cachedData == null) {
+                log.warn("KHÔNG TÌM THẤY CACHE cho SKU: {}. Dùng dữ liệu fallback để test framework.", itemReq.getSkuCode());
+                productInfo = ProductCacheEvent.builder()
+                        .skuCode(itemReq.getSkuCode())
+                        .name("TEST-" + itemReq.getSkuCode())
+                        .price(BigDecimal.valueOf(100000))
+                        .imageUrl(null)
+                        .color("N/A")
+                        .size("N/A")
+                        .build();
+            } else {
+                productInfo = objectMapper.convertValue(cachedData, ProductCacheEvent.class);
+            }
 
             // 3. Gọi hàm mapToDto (đã sửa) với giá
             OrderLineItems entity = mapToDtoWithPrice(itemReq, productInfo);
@@ -413,73 +496,138 @@ public class OrderService {
         return orderLineItems;
     }
 
+//    @Transactional
+//    protected void handleOrderFailure(OrderFailedEvent failedEvent) {
+//        log.info("Using OrderFailedEvent class: {}", failedEvent.getClass().getName());
+//        log.warn("INVENTORY FAILED: Received feedback for Order {}. Reason: {}",
+//                failedEvent.getOrderNumber(), failedEvent.getReason());
+//
+//        Order order = orderRepository.findByOrderNumber(failedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + failedEvent.getOrderNumber()));
+//        if (order.getStatus().equals("PENDING")) {
+//            order.setStatus("FAILED");
+//            orderRepository.save(order);
+//            log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            this.ordersFailedCounter.increment();
+//        } else {
+//            log.warn("Received failure event for order {} but status was not PENDING (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
+//    }
+
     @Transactional
     protected void handleOrderFailure(OrderFailedEvent failedEvent) {
-        log.info("Using OrderFailedEvent class: {}", failedEvent.getClass().getName());
         log.warn("INVENTORY FAILED: Received feedback for Order {}. Reason: {}",
                 failedEvent.getOrderNumber(), failedEvent.getReason());
 
-        Order order = orderRepository.findByOrderNumber(failedEvent.getOrderNumber())
+        Order order = orderRepository.findByOrderNumberWithItems(failedEvent.getOrderNumber())
                 .orElseThrow(() -> new RuntimeException("Order not found: " + failedEvent.getOrderNumber()));
-        if (order.getStatus().equals("PENDING")) {
+
+        if ("PENDING".equals(order.getStatus())) {
             order.setStatus("FAILED");
             orderRepository.save(order);
-            log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
+            publishReleaseCommands(order, "INVENTORY_FAILED: " + failedEvent.getReason());
             kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
                     new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
             this.ordersFailedCounter.increment();
+            log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
         } else {
             log.warn("Received failure event for order {} but status was not PENDING (Status: {}).",
                     order.getOrderNumber(), order.getStatus());
         }
     }
 
+//    @Transactional
+//    protected void handlePaymentSuccess(PaymentProcessedEvent paymentProcessedEvent) {
+//        log.info("SUCCESS: Received PaymentProcessedEvent for Order {}. Payment ID: {}. Updating status...",
+//                paymentProcessedEvent.getOrderNumber(), paymentProcessedEvent.getPaymentId());
+//
+//        // Không cần try-catch ở đây nữa vì đã có ở hàm listener chính
+//        Order order = orderRepository.findByOrderNumber(paymentProcessedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentProcessedEvent.getOrderNumber()));
+//
+//        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
+//            order.setStatus("COMPLETED");
+//            orderRepository.save(order);
+//            log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            this.ordersCompletedCounter.increment();
+//        } else {
+//            log.warn("Received payment success for order {} but status was not PENDING (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
+//    }
+
     @Transactional
     protected void handlePaymentSuccess(PaymentProcessedEvent paymentProcessedEvent) {
         log.info("SUCCESS: Received PaymentProcessedEvent for Order {}. Payment ID: {}. Updating status...",
                 paymentProcessedEvent.getOrderNumber(), paymentProcessedEvent.getPaymentId());
 
-        // Không cần try-catch ở đây nữa vì đã có ở hàm listener chính
-        Order order = orderRepository.findByOrderNumber(paymentProcessedEvent.getOrderNumber())
+        Order order = orderRepository.findByOrderNumberWithItems(paymentProcessedEvent.getOrderNumber())
                 .orElseThrow(() -> new RuntimeException("Order not found: " + paymentProcessedEvent.getOrderNumber()));
 
         if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
             order.setStatus("COMPLETED");
             orderRepository.save(order);
-            log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
+            publishConfirmCommands(order);
             kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
                     new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
             this.ordersCompletedCounter.increment();
+            log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
         } else {
-            log.warn("Received payment success for order {} but status was not PENDING (Status: {}).",
+            log.warn("Received payment success for order {} but status was not PENDING/VALIDATED (Status: {}).",
                     order.getOrderNumber(), order.getStatus());
         }
     }
+
+//    @Transactional
+//    protected void handlePaymentFailure(PaymentFailedEvent paymentFailedEvent) {
+//        log.warn("FAILED: Received PaymentFailedEvent for Order {}. Reason: {}. Updating status...",
+//                paymentFailedEvent.getOrderNumber(), paymentFailedEvent.getReason());
+//        Order order = orderRepository.findByOrderNumberWithItems(paymentFailedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentFailedEvent.getOrderNumber()));
+//        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
+//            order.setStatus("PAYMENT_FAILED");
+//            orderRepository.save(order);
+//            List<OrderLineItems> items = order.getOrderLineItemsList();
+//            for (OrderLineItems item : items) {
+//                InventoryAdjustmentEvent adjustmentEvent = InventoryAdjustmentEvent.builder()
+//                        .skuCode(item.getSkuCode())
+//                        .adjustmentQuantity(item.getQuantity()) // Số dương: Cộng lại vào kho
+//                        .reason("COMPENSATION: Payment Failed for Order " + order.getOrderNumber())
+//                        .build();
+//                kafkaTemplate.send("inventory-adjustment-topic", item.getSkuCode(), adjustmentEvent);
+//                log.info("COMPENSATION: Sent restock request for SKU {} (+{})", item.getSkuCode(), item.getQuantity());
+//            }
+//            log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//        } else {
+//            log.warn("Received payment failure for order {} but status was not PENDING (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
+//    }
 
     @Transactional
     protected void handlePaymentFailure(PaymentFailedEvent paymentFailedEvent) {
         log.warn("FAILED: Received PaymentFailedEvent for Order {}. Reason: {}. Updating status...",
                 paymentFailedEvent.getOrderNumber(), paymentFailedEvent.getReason());
+
         Order order = orderRepository.findByOrderNumberWithItems(paymentFailedEvent.getOrderNumber())
                 .orElseThrow(() -> new RuntimeException("Order not found: " + paymentFailedEvent.getOrderNumber()));
+
         if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
             order.setStatus("PAYMENT_FAILED");
             orderRepository.save(order);
-            List<OrderLineItems> items = order.getOrderLineItemsList();
-            for (OrderLineItems item : items) {
-                InventoryAdjustmentEvent adjustmentEvent = InventoryAdjustmentEvent.builder()
-                        .skuCode(item.getSkuCode())
-                        .adjustmentQuantity(item.getQuantity()) // Số dương: Cộng lại vào kho
-                        .reason("COMPENSATION: Payment Failed for Order " + order.getOrderNumber())
-                        .build();
-                kafkaTemplate.send("inventory-adjustment-topic", item.getSkuCode(), adjustmentEvent);
-                log.info("COMPENSATION: Sent restock request for SKU {} (+{})", item.getSkuCode(), item.getQuantity());
-            }
-            log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
+            publishReleaseCommands(order, "PAYMENT_FAILED: " + paymentFailedEvent.getReason());
             kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
                     new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+            log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
         } else {
-            log.warn("Received payment failure for order {} but status was not PENDING (Status: {}).",
+            log.warn("Received payment failure for order {} but status was not PENDING/VALIDATED (Status: {}).",
                     order.getOrderNumber(), order.getStatus());
         }
     }
@@ -534,5 +682,33 @@ public class OrderService {
         orderLineItems.setQuantity(orderLineItemsDto.getQuantity());
         orderLineItems.setSkuCode(orderLineItemsDto.getSkuCode());
         return orderLineItems;
+    }
+
+    //mới
+    private void publishConfirmCommands(Order order) {
+        for (OrderLineItems item : order.getOrderLineItemsList()) {
+            ConfirmReservationCommand command = ConfirmReservationCommand.builder()
+                    .workflowId(order.getOrderNumber())
+                    .resourceId(item.getSkuCode())
+                    .quantity(item.getQuantity())
+                    .build();
+            kafkaTemplate.send("inventory-reservation-confirm-topic", item.getSkuCode(), command);
+            log.info("Sent confirm reservation command for order={}, sku={}, qty={}",
+                    order.getOrderNumber(), item.getSkuCode(), item.getQuantity());
+        }
+    }
+
+    private void publishReleaseCommands(Order order, String reason) {
+        for (OrderLineItems item : order.getOrderLineItemsList()) {
+            ReleaseReservationCommand command = ReleaseReservationCommand.builder()
+                    .workflowId(order.getOrderNumber())
+                    .resourceId(item.getSkuCode())
+                    .quantity(item.getQuantity())
+                    .reason(reason)
+                    .build();
+            kafkaTemplate.send("inventory-reservation-release-topic", item.getSkuCode(), command);
+            log.info("Sent release reservation command for order={}, sku={}, qty={}, reason={}",
+                    order.getOrderNumber(), item.getSkuCode(), item.getQuantity(), reason);
+        }
     }
 }
