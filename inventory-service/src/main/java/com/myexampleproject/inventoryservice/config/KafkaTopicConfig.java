@@ -111,4 +111,21 @@ public class KafkaTopicConfig {
     }
 
 
+    //thêm 2 bean mới
+    @Bean
+    public NewTopic inventoryReservationConfirmTopic() {
+        return TopicBuilder.name("inventory-reservation-confirm-topic")
+                .partitions(NUM_PARTITIONS)
+                .replicas(REPLICAS)
+                .build();
+    }
+
+    @Bean
+    public NewTopic inventoryReservationReleaseTopic() {
+        return TopicBuilder.name("inventory-reservation-release-topic")
+                .partitions(NUM_PARTITIONS)
+                .replicas(REPLICAS)
+                .build();
+    }
+
 }
