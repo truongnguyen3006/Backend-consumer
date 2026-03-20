@@ -18,12 +18,6 @@ import java.util.UUID;
 public class PaymentService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    // Listener để nhận sự kiện từ Inventory Service
-//    @KafkaListener(
-//            topics = "order-validated-topic",
-//            groupId = "payment-group",
-//            containerFactory = "paymentKafkaListenerContainerFactory"
-//    )
 
     // Kafka listener now relies on lsf-kafka-starter instead of a service-specific consumer configuration.
     @KafkaListener(
@@ -37,39 +31,24 @@ public class PaymentService {
             try {
                 // 1. Convert từ record.value() sang object
                 OrderValidatedEvent event = objectMapper.convertValue(record.value(), OrderValidatedEvent.class);
-
-                // 2. SỬA LỖI: Dùng biến 'event'
                 log.info("Received OrderValidatedEvent for Order {}. Processing payment...",
                         event.getOrderNumber());
-
-                // 3. SỬA LỖI: Dùng biến 'event'
                 boolean paymentSuccess = processPayment(event);
                 if (paymentSuccess) {
                     String paymentId = UUID.randomUUID().toString();
-
-                    // 4. SỬA LỖI: Dùng biến 'event'
                     PaymentProcessedEvent successEvent = new PaymentProcessedEvent(
                             event.getOrderNumber(),
                             paymentId
                     );
-
-                    // 5. SỬA LỖI: Dùng biến 'event'
                     kafkaTemplate.send("payment-processed-topic", event.getOrderNumber(), successEvent);
-
-                    // 6. SỬA LỖI: Dùng biến 'event'
                     log.info("Payment SUCCESS for Order {}. Payment ID: {}",
                             event.getOrderNumber(), paymentId);
                 } else {
-                    // 7. SỬA LỖI: Dùng biến 'event'
                     PaymentFailedEvent failedEvent = new PaymentFailedEvent(
                             event.getOrderNumber(),
                             "Payment gateway declined."
                     );
-
-                    // 8. SỬA LỖI: Dùng biến 'event'
                     kafkaTemplate.send("payment-failed-topic", event.getOrderNumber(), failedEvent);
-
-                    // 9. SỬA LỖI: Dùng biến 'event'
                     log.warn("Payment FAILED for Order {}. Reason: {}",
                             event.getOrderNumber(), failedEvent.getReason());
                 }
@@ -85,17 +64,12 @@ public class PaymentService {
 //        return true; // Luôn trả về thành công cho đơn giản
 //    }
 
-    //test
-    // Local demo rule only: deterministic payment outcome to exercise confirm/release scenarios.
     private boolean processPayment(OrderValidatedEvent event) {
-        int totalQty = event.getItems()
-                .stream()
-                .mapToInt(item -> item.getQuantity())
-                .sum();
+        return simulatePaymentDecision(event);
+    }
 
-        // Test local:
-        // đơn có tổng quantity = 2 => fail
-        // các đơn khác => success
+    private boolean simulatePaymentDecision(OrderValidatedEvent event) {
+        int totalQty = event.getItems().stream().mapToInt(item -> item.getQuantity()).sum();
         return totalQty != 2;
     }
 }

@@ -32,16 +32,6 @@ public class KafkaStreamsConfig {
     @Value("${spring.kafka.streams.properties.state.dir}")
     private String stateDir;
 
-    /*
-     * XÓA BỎ BEAN 'inventoryKafkaStreams' Ở ĐÂY.
-     * CHÚNG TA SẼ INJECT TRỰC TIẾP StreamsBuilderFactoryBean VÀO SERVICE.
-     */
-    // @Bean(name = "inventoryKafkaStreams")
-    // public KafkaStreams kafkaStreams(StreamsBuilderFactoryBean factory) {
-    //    return factory.getKafkaStreams(); // DÒNG NÀY TRẢ VỀ NULL KHI KHỞI ĐỘNG
-    // }
-
-
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
     public KafkaStreamsConfiguration kafkaStreamsConfiguration() {
 

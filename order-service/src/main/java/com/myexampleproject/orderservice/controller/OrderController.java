@@ -32,34 +32,20 @@ public class OrderController {
 
     private final OrderService orderService;
 
-//    @PostMapping
-//    @ResponseStatus(HttpStatus.ACCEPTED)
-//    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest, Principal principal) {
-//        log.info("Placing Order...");
-//        if (principal == null) {
-//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để đặt hàng");
-//        }
-//        // Lấy ID thật từ Token
-//        String userId = principal.getName();
-//        String orderNumber = orderService.placeOrder(orderRequest, userId);
-//        // Trả về JSON: { "orderNumber": "uuid-..." }
-//        return Map.of("orderNumber", orderNumber, "message", "Order Received");
-//    }
-    //test mới
-    // Local demo endpoint variant: bypasses authenticated principal and uses a fixed test user.
-    // Restore token-based user resolution when leaving demo mode.
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest) {
+    public Map<String, String> placeOrder(@RequestBody OrderRequest orderRequest, Principal principal) {
         log.info("Placing Order...");
-        String userId = "test-user";
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Bạn cần đăng nhập để đặt hàng");
+        }
+        // Lấy ID thật từ Token
+        String userId = principal.getName();
         String orderNumber = orderService.placeOrder(orderRequest, userId);
+        // Trả về JSON: { "orderNumber": "uuid-..." }
         return Map.of("orderNumber", orderNumber, "message", "Order Received");
     }
 
-    // ==========================================================
-    // === PHƯƠNG THỨC GET MỚI CẦN BỔ SUNG ===
-    // ==========================================================
     @GetMapping("/{orderNumber}")
     @ResponseStatus(HttpStatus.OK)
     public OrderResponse getOrderDetails(@PathVariable String orderNumber) {

@@ -11,10 +11,6 @@ public class KafkaTopicConfig {
     private final int NUM_PARTITIONS = 10;
     private final short REPLICAS = 1;
 
-    // ==========================================================
-    // THÊM 2 TOPIC SAGA MỚI VÀO ĐÂY
-    // ==========================================================
-
     @Bean
     public NewTopic inventoryCheckRequestTopic() {
         return TopicBuilder.name("inventory-check-request-topic")
@@ -30,10 +26,6 @@ public class KafkaTopicConfig {
                 .replicas(REPLICAS)
                 .build();
     }
-
-    // ==========================================================
-    // (Các topic bean cũ của bạn giữ nguyên)
-    // ==========================================================
 
     @Bean
     public NewTopic inventoryStateChangelogTopic() {

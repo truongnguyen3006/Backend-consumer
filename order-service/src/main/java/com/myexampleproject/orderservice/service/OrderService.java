@@ -11,6 +11,7 @@ import com.myexampleproject.common.event.*;
 import com.myexampleproject.orderservice.config.CartMapper;
 import com.myexampleproject.orderservice.dto.OrderResponse;
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.Convert;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -82,77 +83,6 @@ public class OrderService {
         kafkaTemplate.send("order-placed-topic", orderNumber, placedEvent);
         return orderNumber;
     }
-
-    // ==========================================================
-    // SAGA LISTENER: Xử lý kết quả kiểm kê (ĐÃ SỬA LỖI 2 ITEMS)
-    // ==========================================================
-//    @KafkaListener(topics = "inventory-check-result-topic", groupId = "order-saga-group")
-//    public void handleInventoryCheckResult(List<ConsumerRecord<String, Object>> records) {
-//        log.info("SAGA: Received batch of {} inventory results", records.size());
-//
-//        for (ConsumerRecord<String, Object> record : records) {
-//            try {
-//                Object payload = record.value();
-//                InventoryCheckResult result = objectMapper.convertValue(payload, InventoryCheckResult.class);
-//
-//                String orderNumber = result.getOrderNumber();
-//                String sagaKey = SAGA_PREFIX + orderNumber;
-//
-//                log.info("SAGA: Result for Order {}, SKU {}: Success={}",
-//                        orderNumber, result.getItem().getSkuCode(), result.isSuccess());
-//
-//                // 1. Tăng biến đếm (Atomic Increment)
-//                // Lệnh này an toàn kể cả khi key chưa có (nó sẽ tạo mới và set = 1)
-//                Long receivedCount = redisTemplate.opsForHash().increment(sagaKey, "receivedItems", 1);
-//
-//                // 2. Kiểm tra xem đã fail trước đó chưa
-//                Object failedState = redisTemplate.opsForHash().get(sagaKey, "failed");
-//                boolean alreadyFailed = (failedState != null) && (Boolean) failedState;
-//
-//                if (alreadyFailed) {
-//                    log.info("SAGA: Order {} already marked failed. Ignoring.", orderNumber);
-//                    continue;
-//                }
-//
-//                // 3. Nếu item này thất bại
-//                if (!result.isSuccess()) {
-//                    log.warn("SAGA: Inventory check FAILED for Order {}, SKU {}. Reason: {}",
-//                            orderNumber, result.getItem().getSkuCode(), result.getReason());
-//
-//                    redisTemplate.opsForHash().put(sagaKey, "failed", true);
-//                    kafkaTemplate.send("order-failed-topic", orderNumber, new OrderFailedEvent(orderNumber, result.getReason()));
-//                    continue;
-//                }
-//
-//                // 4. Kiểm tra tổng số items (SỬA LỖI CASTING TẠI ĐÂY)
-//                Object totalObj = redisTemplate.opsForHash().get(sagaKey, "totalItems");
-//                if (totalObj == null) {
-//                    // Có thể do Redis hết hạn hoặc race condition cực hiếm
-//                    log.warn("SAGA: State missing for order {}. Waiting...", orderNumber);
-//                    continue;
-//                }
-//
-//                // Helper để chuyển đổi số an toàn (tránh ClassCastException Long vs Integer)
-//                int totalItems = parseIntegerSafely(totalObj);
-//
-//                log.debug("SAGA: Order {} progress: {}/{}", orderNumber, receivedCount, totalItems);
-//
-//                if (receivedCount == totalItems) {
-//                    log.info("SAGA COMPLETE: Order {} passed all inventory checks.", orderNumber);
-//
-//                    Object requestObj = redisTemplate.opsForHash().get(sagaKey, "request");
-//                    OrderRequest originalRequest = objectMapper.convertValue(requestObj, OrderRequest.class);
-//
-//                    kafkaTemplate.send("order-validated-topic", orderNumber,
-//                            new OrderValidatedEvent(orderNumber, originalRequest.getItems()));
-//
-//                    redisTemplate.delete(sagaKey);
-//                }
-//
-//            } catch (Exception e) {
-//                log.error("SAGA ERROR: Key: {}", record.key(), e);
-//            }
-//        }
 
     // LSF integration note:
     // the saga waits for all inventory results before deciding success/failure,
@@ -392,7 +322,7 @@ public class OrderService {
     // order data is still assembled here, while reservation itself is delegated to inventory + LSF quota.
     @Transactional
     protected void handleOrderPlacement(OrderPlacedEvent event) {
-        log.info("Async Save: Saving Order {} to database...", event.getOrderNumber());
+        log.info("Order validated: Saving Order {} to database...", event.getOrderNumber());
 
         Order order = new Order();
         order.setOrderNumber(event.getOrderNumber());
@@ -405,36 +335,19 @@ public class OrderService {
         List<OrderLineItems> orderLineItemsEntities = new ArrayList<>();
 
         for (OrderLineItemRequest itemReq : itemRequests) {
-
-            // --- LOGIC SỬA ĐỔI BẮT ĐẦU TỪ ĐÂY ---
-
             // 1. Lấy thông tin sản phẩm từ Cache
             Object cachedData = redisTemplate.opsForHash().get(PRODUCT_CACHE_KEY, itemReq.getSkuCode());
 
-//            if (cachedData == null) {
-//                // Lỗi nghiêm trọng: Sản phẩm không có trong cache
-//                // (Trong thực tế, bạn có thể gọi API dự phòng, hoặc FAILED đơn hàng)
-//                log.error("KHÔNG TÌM THẤY CACHE cho SKU: {}", itemReq.getSkuCode());
-//                // Tạm thời FAILED đơn hàng này
-//                throw new RuntimeException("Product not in cache: " + itemReq.getSkuCode());
-//            }
-
-            // 2. Convert cache (là ProductCacheEvent)
-            ProductCacheEvent productInfo = objectMapper.convertValue(cachedData, ProductCacheEvent.class);
-//            test
             if (cachedData == null) {
-                log.warn("KHÔNG TÌM THẤY CACHE cho SKU: {}. Dùng dữ liệu fallback để test framework.", itemReq.getSkuCode());
-                productInfo = ProductCacheEvent.builder()
-                        .skuCode(itemReq.getSkuCode())
-                        .name("TEST-" + itemReq.getSkuCode())
-                        .price(BigDecimal.valueOf(100000))
-                        .imageUrl(null)
-                        .color("N/A")
-                        .size("N/A")
-                        .build();
-            } else {
-                productInfo = objectMapper.convertValue(cachedData, ProductCacheEvent.class);
+                // Lỗi nghiêm trọng: Sản phẩm không có trong cache
+                // (Trong thực tế, bạn có thể gọi API dự phòng, hoặc FAILED đơn hàng)
+                log.error("KHÔNG TÌM THẤY CACHE cho SKU: {}", itemReq.getSkuCode());
+                // Tạm thời FAILED đơn hàng này
+                throw new RuntimeException("Product not in cache: " + itemReq.getSkuCode());
             }
+
+//             2. Convert cache (là ProductCacheEvent)
+            ProductCacheEvent productInfo = objectMapper.convertValue(cachedData, ProductCacheEvent.class);
 
             // 3. Gọi hàm mapToDto (đã sửa) với giá
             OrderLineItems entity = mapToDtoWithPrice(itemReq, productInfo);
@@ -457,7 +370,7 @@ public class OrderService {
 
 
         orderRepository.save(order);
-        log.info("Async Save: Order {} saved to database.", event.getOrderNumber());
+        log.info("Order validated: Order {} saved to database.", event.getOrderNumber());
 
         List<OrderLineItemRequest> items = event.getOrderLineItemsDtoList(); // Lấy từ event
         String orderNumber = event.getOrderNumber();
@@ -671,7 +584,7 @@ public class OrderService {
                 // --- (Logic cũ kết thúc) ---
 
             } catch (Exception e) {
-                log.error("SAGA: LỖI KHI XỬ LÝ OrderValidatedEvent: {}. Sẽ KHÔNG retry.", record.key(), e);
+                log.error("Order placement failed OrderValidatedEvent: {}. Sẽ KHÔNG retry.", record.key(), e);
             }
         }
     }

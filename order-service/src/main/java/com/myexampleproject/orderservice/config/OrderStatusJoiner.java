@@ -20,7 +20,7 @@ import java.util.Map;
 @Slf4j
 public class OrderStatusJoiner {
 
-    @Value("${spring.kafka.properties.schema.registry.url}")
+    @Value("${lsf.kafka.schema-registry-url}")
     private String schemaRegistryUrl;
 
     private <T> Serde<T> jsonSerde(Class<T> clazz) {

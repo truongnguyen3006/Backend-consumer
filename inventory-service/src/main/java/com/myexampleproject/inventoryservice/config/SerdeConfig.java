@@ -11,7 +11,7 @@ import java.util.Map;
 @Configuration
 public class SerdeConfig {
 
-    @Value("${spring.kafka.properties.schema.registry.url}")
+    @Value("${lsf.kafka.schema-registry-url}")
     private String schemaRegistryUrl;
 
     // Generic helper - dùng ở InventoryTopology
