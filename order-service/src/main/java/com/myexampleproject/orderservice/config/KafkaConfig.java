@@ -8,9 +8,18 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaConfig {
 
+//    @Bean
+//    public NewTopic orderStatusTopic() {
+//        return TopicBuilder.name("order-status-topic")
+//                .partitions(1)
+//                .replicas(1)
+//                .build();
+//    }
+    //đổi tên topic vì trước đây dùng trực tiếp order-status-topic đã đk với schema registry rồi
+    // giờ đổi thành envelope thì sẽ không tương thích schema nên lỗi
     @Bean
-    public NewTopic orderStatusTopic() {
-        return TopicBuilder.name("order-status-topic")
+    public NewTopic orderStatusEnvelopeTopic() {
+        return TopicBuilder.name("order-status-envelope-topic")
                 .partitions(1)
                 .replicas(1)
                 .build();

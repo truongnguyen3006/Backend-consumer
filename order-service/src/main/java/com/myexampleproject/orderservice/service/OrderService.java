@@ -10,6 +10,8 @@ import com.myexampleproject.common.dto.OrderLineItemRequest;
 import com.myexampleproject.common.event.*;
 import com.myexampleproject.orderservice.config.CartMapper;
 import com.myexampleproject.orderservice.dto.OrderResponse;
+import com.myorg.lsf.contracts.core.envelope.EventEnvelope;
+import com.myorg.lsf.outbox.OutboxWriter;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.Convert;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,10 @@ public class OrderService {
     private final RedisTemplate<String, Object> redisTemplate;
     private static final String SAGA_PREFIX = "saga:order:";
     private static final String PRODUCT_CACHE_KEY = "products:cache";
+
+    //inject OutboxWriter vào OrderService
+    private final OutboxWriter outboxWriter;
+    private final OrderOutboxEnvelopeFactory envelopeFactory;
 
     //Viết hàm này vì dùng @RequiredArgsConstructor với biến không có final , Counter
     @PostConstruct
@@ -394,7 +400,8 @@ public class OrderService {
         log.info("SAGA started for persisted Order {}. Check requests sent.", orderNumber);
 
         OrderStatusEvent statusEvent = new OrderStatusEvent(event.getOrderNumber(), "PENDING");
-        kafkaTemplate.send("order-status-topic", event.getOrderNumber(), statusEvent);
+//        kafkaTemplate.send("order-status-topic", event.getOrderNumber(), statusEvent);
+        appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
     }
 
     // Hàm này được gọi trong handleOrderPlacement
@@ -448,8 +455,9 @@ public class OrderService {
             order.setStatus("FAILED");
             orderRepository.save(order);
             publishReleaseCommands(order, "INVENTORY_FAILED: " + failedEvent.getReason());
-            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
             this.ordersFailedCounter.increment();
             log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
         } else {
@@ -492,8 +500,9 @@ public class OrderService {
             order.setStatus("COMPLETED");
             orderRepository.save(order);
             publishConfirmCommands(order);
-            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
             this.ordersCompletedCounter.increment();
             log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
         } else {
@@ -543,8 +552,9 @@ public class OrderService {
             order.setStatus("PAYMENT_FAILED");
             orderRepository.save(order);
             publishReleaseCommands(order, "PAYMENT_FAILED: " + paymentFailedEvent.getReason());
-            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
             log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
         } else {
             log.warn("Received payment failure for order {} but status was not PENDING/VALIDATED (Status: {}).",
@@ -570,10 +580,11 @@ public class OrderService {
                 if ("PENDING".equals(order.getStatus())) {
                     order.setStatus("VALIDATED"); // Trạng thái "đã xác thực kho"
                     orderRepository.save(order);
-                    kafkaTemplate.send("order-status-topic",
-                            order.getOrderNumber(),
-                            new OrderStatusEvent(order.getOrderNumber(), "VALIDATED")
-                    );
+//                    kafkaTemplate.send("order-status-topic",
+//                            order.getOrderNumber(),
+//                            new OrderStatusEvent(order.getOrderNumber(), "VALIDATED")
+//                    );
+                    appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
 
                     // (Bạn có thể kích hoạt payment-service từ đây nếu muốn)
 
@@ -632,5 +643,16 @@ public class OrderService {
             log.info("Sent release reservation command for order={}, sku={}, qty={}, reason={}",
                     order.getOrderNumber(), item.getSkuCode(), item.getQuantity(), reason);
         }
+    }
+
+    private void appendOrderStatusOutbox(String orderNumber, String status) {
+        OrderStatusEvent event = new OrderStatusEvent(orderNumber, status);
+        EventEnvelope envelope = envelopeFactory.wrap(
+                "ecommerce.order.status.v1",
+                orderNumber,
+                orderNumber,
+                event
+        );
+        outboxWriter.append(envelope, "order-status-envelope-topic", orderNumber);
     }
 }

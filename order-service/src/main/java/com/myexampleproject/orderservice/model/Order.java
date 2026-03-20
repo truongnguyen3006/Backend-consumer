@@ -28,7 +28,7 @@ public class Order {
     @Column(nullable = false, updatable = false)
     private String userId; // Hoặc Long userId nếu bạn dùng ID của UserService
 
-    @Column(name = "orderNumber", nullable = false, unique = true)
+    @Column(name = "order_number", nullable = false, unique = true)
     private String orderNumber;
     private BigDecimal totalPrice;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)

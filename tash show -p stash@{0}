@@ -1,0 +1,239 @@
+ .../1_0/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_0/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765680021118154       |   0
+ .../inventory-store/LOG.old.1765682753860901       |   0
+ .../inventory-store/LOG.old.1765683847426033       |   0
+ .../inventory-store/LOG.old.1765686388341727       |   0
+ .../inventory-store/LOG.old.1765698287886436       |   0
+ .../inventory-store/LOG.old.1765700550152494       |   0
+ .../inventory-store/LOG.old.1765811683851366       |   0
+ .../inventory-store/LOG.old.1765812088069072       |   0
+ .../inventory-store/LOG.old.1765812777515575       |   0
+ .../inventory-store/LOG.old.1765812978777721       |   0
+ .../inventory-store/LOG.old.1765815016943421       |   0
+ .../inventory-store/LOG.old.1765815300990594       |   0
+ .../inventory-store/LOG.old.1765815549097660       |   0
+ .../inventory-store/LOG.old.1765815915478417       |   0
+ .../inventory-store/LOG.old.1765846953611247       |   0
+ .../inventory-store/LOG.old.1765848032975622       |   0
+ .../inventory-store/LOG.old.1765848294379366       |   0
+ .../inventory-store/LOG.old.1765848745530256       |   0
+ .../inventory-store/LOG.old.1765849106423906       |   0
+ .../inventory-store/LOG.old.1765849338295395       |   0
+ .../inventory-store/LOG.old.1765849674390581       |   0
+ .../inventory-store/LOG.old.1765850039741614       |   0
+ .../inventory-store/LOG.old.1765850241329525       |   0
+ .../inventory-store/LOG.old.1765850535756029       |   0
+ .../inventory-store/LOG.old.1765850713608683       |   0
+ .../inventory-store/LOG.old.1765852987915884       |   0
+ .../inventory-store/LOG.old.1765853354937200       |   0
+ .../inventory-store/LOG.old.1765853895289746       |   0
+ .../inventory-store/LOG.old.1765854469688725       |   0
+ .../inventory-store/LOG.old.1765854881583293       |   0
+ .../1_0/rocksdb/inventory-store/MANIFEST-000127    | Bin [31m172[m -> [32m0[m bytes
+ .../1_0/rocksdb/inventory-store/OPTIONS-000125     | 304 [31m---------------------[m
+ .../1_0/rocksdb/inventory-store/OPTIONS-000129     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_1/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_1/inventory-store.position                   |   4 [31m-[m
+ .../1_1/rocksdb/inventory-store/000048.sst         | Bin [31m1200[m -> [32m0[m bytes
+ .../1_1/rocksdb/inventory-store/000055.sst         | Bin [31m1204[m -> [32m0[m bytes
+ .../1_1/rocksdb/inventory-store/000062.sst         | Bin [31m1204[m -> [32m0[m bytes
+ .../1_1/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_1/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765850039691220       |   0
+ .../inventory-store/LOG.old.1765850241515212       |   0
+ .../inventory-store/LOG.old.1765850535940299       |   0
+ .../inventory-store/LOG.old.1765850713653425       |   0
+ .../inventory-store/LOG.old.1765852987873137       |   0
+ .../inventory-store/LOG.old.1765853355075310       |   0
+ .../inventory-store/LOG.old.1765853895353026       |   0
+ .../inventory-store/LOG.old.1765854469562924       |   0
+ .../inventory-store/LOG.old.1765854881611071       |   0
+ .../1_1/rocksdb/inventory-store/MANIFEST-000059    | Bin [31m491[m -> [32m0[m bytes
+ .../1_1/rocksdb/inventory-store/OPTIONS-000054     | 304 [31m---------------------[m
+ .../1_1/rocksdb/inventory-store/OPTIONS-000061     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_2/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_2/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_2/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765812777542780       |   0
+ .../inventory-store/LOG.old.1765812978848569       |   0
+ .../inventory-store/LOG.old.1765815016592379       |   0
+ .../inventory-store/LOG.old.1765815300917626       |   0
+ .../inventory-store/LOG.old.1765815549269974       |   0
+ .../inventory-store/LOG.old.1765815915597515       |   0
+ .../inventory-store/LOG.old.1765846953476136       |   0
+ .../inventory-store/LOG.old.1765848032919504       |   0
+ .../inventory-store/LOG.old.1765848294271792       |   0
+ .../inventory-store/LOG.old.1765848745494791       |   0
+ .../inventory-store/LOG.old.1765849106147218       |   0
+ .../inventory-store/LOG.old.1765849338254801       |   0
+ .../inventory-store/LOG.old.1765849674577901       |   0
+ .../inventory-store/LOG.old.1765850039773139       |   0
+ .../inventory-store/LOG.old.1765850241644788       |   0
+ .../inventory-store/LOG.old.1765850535879736       |   0
+ .../inventory-store/LOG.old.1765850713355689       |   0
+ .../inventory-store/LOG.old.1765852987800639       |   0
+ .../inventory-store/LOG.old.1765853354860243       |   0
+ .../inventory-store/LOG.old.1765853895258373       |   0
+ .../inventory-store/LOG.old.1765854469617042       |   0
+ .../inventory-store/LOG.old.1765854881555794       |   0
+ .../1_2/rocksdb/inventory-store/MANIFEST-000095    | Bin [31m171[m -> [32m0[m bytes
+ .../1_2/rocksdb/inventory-store/OPTIONS-000093     | 304 [31m---------------------[m
+ .../1_2/rocksdb/inventory-store/OPTIONS-000097     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_3/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_3/inventory-store.position                   |   4 [31m-[m
+ .../1_3/rocksdb/inventory-store/000032.sst         | Bin [31m1225[m -> [32m0[m bytes
+ .../1_3/rocksdb/inventory-store/000039.sst         | Bin [31m1229[m -> [32m0[m bytes
+ .../1_3/rocksdb/inventory-store/000046.sst         | Bin [31m1229[m -> [32m0[m bytes
+ .../1_3/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_3/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765852988050150       |   0
+ .../inventory-store/LOG.old.1765853354483237       |   0
+ .../inventory-store/LOG.old.1765853895326794       |   0
+ .../inventory-store/LOG.old.1765854469919279       |   0
+ .../inventory-store/LOG.old.1765854881443070       |   0
+ .../1_3/rocksdb/inventory-store/MANIFEST-000043    | Bin [31m491[m -> [32m0[m bytes
+ .../1_3/rocksdb/inventory-store/OPTIONS-000038     | 304 [31m---------------------[m
+ .../1_3/rocksdb/inventory-store/OPTIONS-000045     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_4/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_4/inventory-store.position                   |   4 [31m-[m
+ .../1_4/rocksdb/inventory-store/000032.sst         | Bin [31m1230[m -> [32m0[m bytes
+ .../1_4/rocksdb/inventory-store/000039.sst         | Bin [31m1234[m -> [32m0[m bytes
+ .../1_4/rocksdb/inventory-store/000046.sst         | Bin [31m1234[m -> [32m0[m bytes
+ .../1_4/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_4/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765852988219395       |   0
+ .../inventory-store/LOG.old.1765853354671532       |   0
+ .../inventory-store/LOG.old.1765853895126938       |   0
+ .../inventory-store/LOG.old.1765854469659213       |   0
+ .../inventory-store/LOG.old.1765854881485891       |   0
+ .../1_4/rocksdb/inventory-store/MANIFEST-000043    | Bin [31m488[m -> [32m0[m bytes
+ .../1_4/rocksdb/inventory-store/OPTIONS-000038     | 304 [31m---------------------[m
+ .../1_4/rocksdb/inventory-store/OPTIONS-000045     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_5/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_5/inventory-store.position                   |   4 [31m-[m
+ .../1_5/rocksdb/inventory-store/000048.sst         | Bin [31m1200[m -> [32m0[m bytes
+ .../1_5/rocksdb/inventory-store/000055.sst         | Bin [31m1204[m -> [32m0[m bytes
+ .../1_5/rocksdb/inventory-store/000062.sst         | Bin [31m1204[m -> [32m0[m bytes
+ .../1_5/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_5/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765850039800125       |   0
+ .../inventory-store/LOG.old.1765850241416479       |   0
+ .../inventory-store/LOG.old.1765850535912857       |   0
+ .../inventory-store/LOG.old.1765850713715216       |   0
+ .../inventory-store/LOG.old.1765852987972267       |   0
+ .../inventory-store/LOG.old.1765853354600264       |   0
+ .../inventory-store/LOG.old.1765853895167951       |   0
+ .../inventory-store/LOG.old.1765854469745787       |   0
+ .../inventory-store/LOG.old.1765854881531654       |   0
+ .../1_5/rocksdb/inventory-store/MANIFEST-000059    | Bin [31m491[m -> [32m0[m bytes
+ .../1_5/rocksdb/inventory-store/OPTIONS-000054     | 304 [31m---------------------[m
+ .../1_5/rocksdb/inventory-store/OPTIONS-000061     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_6/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_6/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_6/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765680021073276       |   0
+ .../inventory-store/LOG.old.1765682753916821       |   0
+ .../inventory-store/LOG.old.1765683847275600       |   0
+ .../inventory-store/LOG.old.1765686388319504       |   0
+ .../inventory-store/LOG.old.1765698287426344       |   0
+ .../inventory-store/LOG.old.1765700550331731       |   0
+ .../inventory-store/LOG.old.1765811683783603       |   0
+ .../inventory-store/LOG.old.1765812087830912       |   0
+ .../inventory-store/LOG.old.1765812777426843       |   0
+ .../inventory-store/LOG.old.1765812978958305       |   0
+ .../inventory-store/LOG.old.1765815016842437       |   0
+ .../inventory-store/LOG.old.1765815300824590       |   0
+ .../inventory-store/LOG.old.1765815549158502       |   0
+ .../inventory-store/LOG.old.1765815915622450       |   0
+ .../inventory-store/LOG.old.1765846953803136       |   0
+ .../inventory-store/LOG.old.1765848032885828       |   0
+ .../inventory-store/LOG.old.1765848294343668       |   0
+ .../inventory-store/LOG.old.1765848745416367       |   0
+ .../inventory-store/LOG.old.1765849106185998       |   0
+ .../inventory-store/LOG.old.1765849338378382       |   0
+ .../inventory-store/LOG.old.1765849674023579       |   0
+ .../inventory-store/LOG.old.1765850039882767       |   0
+ .../inventory-store/LOG.old.1765850241554637       |   0
+ .../inventory-store/LOG.old.1765850535667067       |   0
+ .../inventory-store/LOG.old.1765850713502326       |   0
+ .../inventory-store/LOG.old.1765852987600259       |   0
+ .../inventory-store/LOG.old.1765853354774650       |   0
+ .../inventory-store/LOG.old.1765853895379940       |   0
+ .../inventory-store/LOG.old.1765854469777983       |   0
+ .../inventory-store/LOG.old.1765854881631622       |   0
+ .../1_6/rocksdb/inventory-store/MANIFEST-000127    | Bin [31m172[m -> [32m0[m bytes
+ .../1_6/rocksdb/inventory-store/OPTIONS-000125     | 304 [31m---------------------[m
+ .../1_6/rocksdb/inventory-store/OPTIONS-000129     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_7/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_7/inventory-store.position                   |   4 [31m-[m
+ .../1_7/rocksdb/inventory-store/000032.sst         | Bin [31m1278[m -> [32m0[m bytes
+ .../1_7/rocksdb/inventory-store/000039.sst         | Bin [31m1282[m -> [32m0[m bytes
+ .../1_7/rocksdb/inventory-store/000046.sst         | Bin [31m1282[m -> [32m0[m bytes
+ .../1_7/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_7/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765852987742882       |   0
+ .../inventory-store/LOG.old.1765853355164007       |   0
+ .../inventory-store/LOG.old.1765853895231217       |   0
+ .../inventory-store/LOG.old.1765854469858782       |   0
+ .../inventory-store/LOG.old.1765854881685965       |   0
+ .../1_7/rocksdb/inventory-store/MANIFEST-000043    | Bin [31m499[m -> [32m0[m bytes
+ .../1_7/rocksdb/inventory-store/OPTIONS-000038     | 304 [31m---------------------[m
+ .../1_7/rocksdb/inventory-store/OPTIONS-000045     | 304 [31m---------------------[m
+ .../inventory-streams-v11/1_8/.checkpoint          |   2 [32m+[m[31m-[m
+ .../1_8/inventory-store.position                   |   3 [31m-[m
+ .../1_8/rocksdb/inventory-store/000010.sst         | Bin [31m1204[m -> [32m1292[m bytes
+ .../1_8/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765852988164945       |   0
+ .../inventory-store/LOG.old.1765853355287104       |   0
+ .../inventory-store/LOG.old.1765853895420384       |   0
+ .../inventory-store/LOG.old.1765854469889579       |   0
+ .../inventory-store/LOG.old.1765854881510189       |   0
+ .../1_8/rocksdb/inventory-store/MANIFEST-000030    | Bin [31m266[m -> [32m265[m bytes
+ .../1_9/rocksdb/inventory-store/CURRENT            |   2 [32m+[m[31m-[m
+ .../1_9/rocksdb/inventory-store/IDENTITY           |   2 [32m+[m[31m-[m
+ .../inventory-store/LOG.old.1765680020971756       |   0
+ .../inventory-store/LOG.old.1765682753955237       |   0
+ .../inventory-store/LOG.old.1765683847378928       |   0
+ .../inventory-store/LOG.old.1765686388221483       |   0
+ .../inventory-store/LOG.old.1765698288017399       |   0
+ .../inventory-store/LOG.old.1765700550452326       |   0
+ .../inventory-store/LOG.old.1765811683531747       |   0
+ .../inventory-store/LOG.old.1765812087928003       |   0
+ .../inventory-store/LOG.old.1765812777396654       |   0
+ .../inventory-store/LOG.old.1765812978896908       |   0
+ .../inventory-store/LOG.old.1765815016654223       |   0
+ .../inventory-store/LOG.old.1765815299988942       |   0
+ .../inventory-store/LOG.old.1765815548956923       |   0
+ .../inventory-store/LOG.old.1765815915441370       |   0
+ .../inventory-store/LOG.old.1765846953722511       |   0
+ .../inventory-store/LOG.old.1765848032859151       |   0
+ .../inventory-store/LOG.old.1765848294411335       |   0
+ .../inventory-store/LOG.old.1765848745354993       |   0
+ .../inventory-store/LOG.old.1765849106360615       |   0
+ .../inventory-store/LOG.old.1765849338335688       |   0
+ .../inventory-store/LOG.old.1765849674218664       |   0
+ .../inventory-store/LOG.old.1765850039847517       |   0
+ .../inventory-store/LOG.old.1765850241601257       |   0
+ .../inventory-store/LOG.old.1765850535972839       |   0
+ .../inventory-store/LOG.old.1765850713562573       |   0
+ .../inventory-store/LOG.old.1765852988090616       |   0
+ .../inventory-store/LOG.old.1765853354316592       |   0
+ .../inventory-store/LOG.old.1765853895197180       |   0
+ .../inventory-store/LOG.old.1765854469813609       |   0
+ .../inventory-store/LOG.old.1765854881658575       |   0
+ .../1_9/rocksdb/inventory-store/MANIFEST-000127    | Bin [31m172[m -> [32m0[m bytes
+ .../1_9/rocksdb/inventory-store/OPTIONS-000125     | 304 [31m---------------------[m
+ .../1_9/rocksdb/inventory-store/OPTIONS-000129     | 304 [31m---------------------[m
+ .../src/main/resources/application.properties      |   2 [32m+[m[31m-[m
+ order-service/pom.xml                              |  10 [32m+[m
+ .../orderservice/config/KafkaConfig.java           |  13 [32m+[m[31m-[m
+ .../orderservice/config/OrderStatusJoiner.java     |  44 [32m++[m[31m-[m
+ .../myexampleproject/orderservice/model/Order.java |   2 [32m+[m[31m-[m
+ .../service/OrderOutboxEnvelopeFactory.java        |  28 [32m++[m
+ .../orderservice/service/OrderService.java         |  44 [32m++[m[31m-[m
+ .../src/main/resources/application.properties      |  31 [32m++[m[31m-[m
+ .../db/migration/V1__create_orders_tables.sql      |  25 [32m++[m
+ .../db/migration/V2__create_lsf_outbox.sql         |  40 [32m+++[m
+ .../src/main/resources/application.properties      |   3 [32m+[m[31m-[m
+ 238 files changed, 242 insertions(+), 5549 deletions(-)
