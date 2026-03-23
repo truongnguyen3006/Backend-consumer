@@ -63,6 +63,9 @@ public class OrderService {
     private final OutboxWriter outboxWriter;
     private final OrderOutboxEnvelopeFactory envelopeFactory;
 
+    //new
+    private final OrderSagaStateService orderSagaStateService;
+
     //Viết hàm này vì dùng @RequiredArgsConstructor với biến không có final , Counter
     @PostConstruct
     public void initMetrics() {
@@ -445,24 +448,34 @@ public class OrderService {
     // Changed from direct inventory compensation to reservation release command.
     @Transactional
     protected void handleOrderFailure(OrderFailedEvent failedEvent) {
-        log.warn("INVENTORY FAILED: Received feedback for Order {}. Reason: {}",
-                failedEvent.getOrderNumber(), failedEvent.getReason());
+//        log.warn("INVENTORY FAILED: Received feedback for Order {}. Reason: {}",
+//                failedEvent.getOrderNumber(), failedEvent.getReason());
+//
+//        Order order = orderRepository.findByOrderNumberWithItems(failedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + failedEvent.getOrderNumber()));
+//
+//        if ("PENDING".equals(order.getStatus())) {
+//            order.setStatus("FAILED");
+//            orderRepository.save(order);
+//            publishReleaseCommands(order, "INVENTORY_FAILED: " + failedEvent.getReason());
+////            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+////                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
+//            this.ordersFailedCounter.increment();
+//            log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
+//        } else {
+//            log.warn("Received failure event for order {} but status was not PENDING (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
+        boolean changed = orderSagaStateService.markFailedAndEnqueueRelease(
+                failedEvent.getOrderNumber(),
+                "FAILED",
+                "inventory: " + failedEvent.getReason()
+        );
 
-        Order order = orderRepository.findByOrderNumberWithItems(failedEvent.getOrderNumber())
-                .orElseThrow(() -> new RuntimeException("Order not found: " + failedEvent.getOrderNumber()));
-
-        if ("PENDING".equals(order.getStatus())) {
-            order.setStatus("FAILED");
-            orderRepository.save(order);
-            publishReleaseCommands(order, "INVENTORY_FAILED: " + failedEvent.getReason());
-//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
-            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
-            this.ordersFailedCounter.increment();
-            log.warn("Order {} status updated to FAILED due to inventory issue.", order.getOrderNumber());
-        } else {
-            log.warn("Received failure event for order {} but status was not PENDING (Status: {}).",
-                    order.getOrderNumber(), order.getStatus());
+        if (changed) {
+            ordersFailedCounter.increment();
+            log.warn("Order {} status updated to FAILED due to inventory issue.", failedEvent.getOrderNumber());
         }
     }
 
@@ -490,25 +503,33 @@ public class OrderService {
     // Payment success now confirms previously reserved quota instead of relying on early stock deduction.
     @Transactional
     protected void handlePaymentSuccess(PaymentProcessedEvent paymentProcessedEvent) {
-        log.info("SUCCESS: Received PaymentProcessedEvent for Order {}. Payment ID: {}. Updating status...",
-                paymentProcessedEvent.getOrderNumber(), paymentProcessedEvent.getPaymentId());
+//        log.info("SUCCESS: Received PaymentProcessedEvent for Order {}. Payment ID: {}. Updating status...",
+//                paymentProcessedEvent.getOrderNumber(), paymentProcessedEvent.getPaymentId());
+//
+//        Order order = orderRepository.findByOrderNumberWithItems(paymentProcessedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentProcessedEvent.getOrderNumber()));
+//
+//        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
+//            order.setStatus("COMPLETED");
+//            orderRepository.save(order);
+//            publishConfirmCommands(order);
+////            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+////                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
+//            this.ordersCompletedCounter.increment();
+//            log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
+//        } else {
+//            log.warn("Received payment success for order {} but status was not PENDING/VALIDATED (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
 
-        Order order = orderRepository.findByOrderNumberWithItems(paymentProcessedEvent.getOrderNumber())
-                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentProcessedEvent.getOrderNumber()));
+        boolean changed = orderSagaStateService.markCompletedAndEnqueueConfirm(paymentProcessedEvent.getOrderNumber());
 
-        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
-            order.setStatus("COMPLETED");
-            orderRepository.save(order);
-            publishConfirmCommands(order);
-//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
-            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
-            this.ordersCompletedCounter.increment();
-            log.info("Order {} status updated to COMPLETED.", order.getOrderNumber());
-        } else {
-            log.warn("Received payment success for order {} but status was not PENDING/VALIDATED (Status: {}).",
-                    order.getOrderNumber(), order.getStatus());
+        if (changed) {
+            ordersCompletedCounter.increment();
+            log.info("Order {} status updated to COMPLETED.", paymentProcessedEvent.getOrderNumber());
         }
+
     }
 
 //    @Transactional
@@ -542,59 +563,65 @@ public class OrderService {
     // Payment failure now releases reservation through lsf-contracts command flow.
     @Transactional
     protected void handlePaymentFailure(PaymentFailedEvent paymentFailedEvent) {
-        log.warn("FAILED: Received PaymentFailedEvent for Order {}. Reason: {}. Updating status...",
-                paymentFailedEvent.getOrderNumber(), paymentFailedEvent.getReason());
+//        log.warn("FAILED: Received PaymentFailedEvent for Order {}. Reason: {}. Updating status...",
+//                paymentFailedEvent.getOrderNumber(), paymentFailedEvent.getReason());
+//
+//        Order order = orderRepository.findByOrderNumberWithItems(paymentFailedEvent.getOrderNumber())
+//                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentFailedEvent.getOrderNumber()));
+//
+//        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
+//            order.setStatus("PAYMENT_FAILED");
+//            orderRepository.save(order);
+//            publishReleaseCommands(order, "PAYMENT_FAILED: " + paymentFailedEvent.getReason());
+////            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
+////                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
+//            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
+//            log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
+//        } else {
+//            log.warn("Received payment failure for order {} but status was not PENDING/VALIDATED (Status: {}).",
+//                    order.getOrderNumber(), order.getStatus());
+//        }
+        boolean changed = orderSagaStateService.markFailedAndEnqueueRelease(
+                paymentFailedEvent.getOrderNumber(),
+                "PAYMENT_FAILED",
+                "payment: " + paymentFailedEvent.getReason()
+        );
 
-        Order order = orderRepository.findByOrderNumberWithItems(paymentFailedEvent.getOrderNumber())
-                .orElseThrow(() -> new RuntimeException("Order not found: " + paymentFailedEvent.getOrderNumber()));
-
-        if ("PENDING".equals(order.getStatus()) || "VALIDATED".equals(order.getStatus())) {
-            order.setStatus("PAYMENT_FAILED");
-            orderRepository.save(order);
-            publishReleaseCommands(order, "PAYMENT_FAILED: " + paymentFailedEvent.getReason());
-//            kafkaTemplate.send("order-status-topic", order.getOrderNumber(),
-//                    new OrderStatusEvent(order.getOrderNumber(), order.getStatus()));
-            appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
-            log.warn("Order {} status updated to PAYMENT_FAILED.", order.getOrderNumber());
-        } else {
-            log.warn("Received payment failure for order {} but status was not PENDING/VALIDATED (Status: {}).",
-                    order.getOrderNumber(), order.getStatus());
+        if (changed) {
+            log.warn("Order {} status updated to PAYMENT_FAILED.", paymentFailedEvent.getOrderNumber());
         }
     }
 
     @KafkaListener(topics = "order-validated-topic", groupId = "order-group")
-    public void handleValidated(List<ConsumerRecord<String, Object>> records) { // <-- SỬA 1: Nhận List
+    public void handleValidated(List<ConsumerRecord<String, Object>> records) {
         log.info("SAGA SUCCESS: Received batch of {} validated events", records.size());
-
-        for (ConsumerRecord<String, Object> record : records) { // <-- SỬA 2: Thêm vòng lặp
-            try {
-                // SỬA 3: Deserialization thủ công
+        for (ConsumerRecord<String, Object> record : records) {
+//            try {
+//                Object payload = record.value();
+//                OrderValidatedEvent event = objectMapper.convertValue(payload, OrderValidatedEvent.class);
+//                log.info("SAGA SUCCESS: Order {} validated, updating status.", event.getOrderNumber());
+//                Order order = orderRepository.findByOrderNumber(event.getOrderNumber())
+//                        .orElseThrow(() -> new RuntimeException("Order not found: " + event.getOrderNumber()));
+//                if ("PENDING".equals(order.getStatus())) {
+//                    order.setStatus("VALIDATED");
+//                    orderRepository.save(order);
+//                    appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
+//                } else {
+//                    log.warn("Received validated event for order {} but status was not PENDING (Status: {}).",
+//                            order.getOrderNumber(), order.getStatus());
+//                }
+//            } catch (Exception e) {
+//                log.error("Order placement failed OrderValidatedEvent: {}. Sẽ KHÔNG retry.", record.key(), e);
+//            }
+            try{
                 Object payload = record.value();
-                OrderValidatedEvent event = objectMapper.convertValue(payload, OrderValidatedEvent.class);
+                OrderValidatedEvent validatedEvent = objectMapper.convertValue(payload, OrderValidatedEvent.class);
+                boolean changed = orderSagaStateService.markValidatedAndEnqueueStatus(validatedEvent.getOrderNumber());
 
-                // --- (Logic cũ của bạn bắt đầu từ đây) ---
-                log.info("SAGA SUCCESS: Order {} validated, updating status.", event.getOrderNumber());
-                Order order = orderRepository.findByOrderNumber(event.getOrderNumber())
-                        .orElseThrow(() -> new RuntimeException("Order not found: " + event.getOrderNumber()));
-
-                if ("PENDING".equals(order.getStatus())) {
-                    order.setStatus("VALIDATED"); // Trạng thái "đã xác thực kho"
-                    orderRepository.save(order);
-//                    kafkaTemplate.send("order-status-topic",
-//                            order.getOrderNumber(),
-//                            new OrderStatusEvent(order.getOrderNumber(), "VALIDATED")
-//                    );
-                    appendOrderStatusOutbox(order.getOrderNumber(), order.getStatus());
-
-                    // (Bạn có thể kích hoạt payment-service từ đây nếu muốn)
-
-                } else {
-                    log.warn("Received validated event for order {} but status was not PENDING (Status: {}).",
-                            order.getOrderNumber(), order.getStatus());
+                if (changed) {
+                    log.info("Order {} moved to VALIDATED", validatedEvent.getOrderNumber());
                 }
-                // --- (Logic cũ kết thúc) ---
-
-            } catch (Exception e) {
+            }catch (Exception e){
                 log.error("Order placement failed OrderValidatedEvent: {}. Sẽ KHÔNG retry.", record.key(), e);
             }
         }
@@ -624,7 +651,7 @@ public class OrderService {
                     .resourceId(item.getSkuCode())
                     .quantity(item.getQuantity())
                     .build();
-            kafkaTemplate.send("inventory-reservation-confirm-topic", item.getSkuCode(), command);
+            kafkaTemplate.send("inventory-reservation-confirm-envelope-topic", item.getSkuCode(), command);
             log.info("Sent confirm reservation command for order={}, sku={}, qty={}",
                     order.getOrderNumber(), item.getSkuCode(), item.getQuantity());
         }
@@ -639,7 +666,7 @@ public class OrderService {
                     .quantity(item.getQuantity())
                     .reason(reason)
                     .build();
-            kafkaTemplate.send("inventory-reservation-release-topic", item.getSkuCode(), command);
+            kafkaTemplate.send("inventory-reservation-release-envelope-topic", item.getSkuCode(), command);
             log.info("Sent release reservation command for order={}, sku={}, qty={}, reason={}",
                     order.getOrderNumber(), item.getSkuCode(), item.getQuantity(), reason);
         }

@@ -104,9 +104,25 @@ public class KafkaTopicConfig {
 
     // Topics introduced for the LSF-based reservation lifecycle.
     //thêm 2 bean mới
+//    @Bean
+//    public NewTopic inventoryReservationConfirmTopic() {
+//        return TopicBuilder.name("inventory-reservation-confirm-topic")
+//                .partitions(NUM_PARTITIONS)
+//                .replicas(REPLICAS)
+//                .build();
+//    }
+//
+//    @Bean
+//    public NewTopic inventoryReservationReleaseTopic() {
+//        return TopicBuilder.name("inventory-reservation-release-topic")
+//                .partitions(NUM_PARTITIONS)
+//                .replicas(REPLICAS)
+//                .build();
+//    }
+
     @Bean
     public NewTopic inventoryReservationConfirmTopic() {
-        return TopicBuilder.name("inventory-reservation-confirm-topic")
+        return TopicBuilder.name("inventory-reservation-confirm-envelope-topic")
                 .partitions(NUM_PARTITIONS)
                 .replicas(REPLICAS)
                 .build();
@@ -114,7 +130,7 @@ public class KafkaTopicConfig {
 
     @Bean
     public NewTopic inventoryReservationReleaseTopic() {
-        return TopicBuilder.name("inventory-reservation-release-topic")
+        return TopicBuilder.name("inventory-reservation-release-envelope-topic")
                 .partitions(NUM_PARTITIONS)
                 .replicas(REPLICAS)
                 .build();

@@ -47,7 +47,7 @@ public class OrderStatusJoiner {
 //        );
         // order-status-topic is now published via LSF outbox, so records arrive as EventEnvelope.
         KTable<String, EventEnvelope> rawStatusTable = builder.table(
-                "order-status-topic",
+                "order-status-envelope-topic",
                 Consumed.with(Serdes.String(), envelopeSerde)
         );
 
