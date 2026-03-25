@@ -1,594 +1,506 @@
-# Tích hợp LSF Framework vào dự án Ecommerce Microservices
+# Tích hợp LSF Framework vào Ecommerce Backend (cập nhật đến Phase 5.2)
 
-## 1. Mục tiêu tích hợp
+## 1. Mục tiêu tài liệu
 
-Mục tiêu của đợt tích hợp này là chứng minh framework **LSF (Large Scale Framework)** có thể được áp dụng vào một hệ thống microservices có sẵn, không chỉ chạy ở demo nội bộ. Dự án ecommerce được chọn làm **project consumer** để kiểm chứng việc tái sử dụng framework trong luồng nghiệp vụ thật, cụ thể là bài toán **giữ hàng tạm thời và chống oversell**.
+Tài liệu này tổng hợp toàn bộ các thay đổi khi dự án ecommerce được tích hợp framework **LSF** theo nhiều giai đoạn phát triển, bao gồm cả phần mở rộng **Outbox Phase 5.2**. Mục tiêu là giúp trả lời rõ các câu hỏi:
 
-Flow được tích hợp là:
+- Thành phần nào của framework đã được áp dụng?
+- Thành phần đó được áp dụng ở service nào?
+- Giai đoạn nào đã thực hiện thay đổi đó?
+- Đoạn nào là phần framework được tái sử dụng?
+- Đoạn nào là phần mapping/orchestration của project consumer?
+- Sau khi tích hợp outbox phase 5.2 thì hệ thống thay đổi thêm những gì?
 
-- `reserve`: giữ hàng tạm thời khi đơn hàng bắt đầu đi qua inventory check
-- `confirm`: xác nhận giữ hàng khi thanh toán thành công
-- `release`: giải phóng giữ hàng khi thanh toán thất bại hoặc đơn hàng thất bại do inventory
-
----
-
-## 2. Những module từ framework đã được áp dụng vào ecommerce
-
-### 2.1 `lsf-quota-streams-starter`
-
-**Mục đích áp dụng:**
-- cung cấp core quota logic để giữ tài nguyên có giới hạn
-- dùng Redis làm quota state store
-- hỗ trợ reserve / confirm / release với request idempotent
-
-**Được áp vào:**
-- `inventory-service`
-
-**Vai trò trong ecommerce:**
-- thay cách trừ stock trực tiếp trong bước inventory check bằng cơ chế **quota reservation**
-- biến flow cũ từ kiểu:
-  - trừ stock ngay
-  - thất bại thì cộng lại
-
-  sang flow chuẩn hơn:
-  - reserve
-  - confirm hoặc release
+Tài liệu này dùng tốt nhất khi đi cùng:
+- branch tích hợp riêng, ví dụ `feat/integrate-lsf-framework`
+- branch cleanup, ví dụ `feat/integrate-lsf-framework-cleanup`
+- branch outbox, ví dụ `feat/integrate-lsf-outbox`
+- commit history được tách theo từng bước
+- file `LSF_INTEGRATION_TRACEABILITY_OUTBOX_PHASE52.md`
+- file `LSF_INTEGRATION_BEFORE_AFTER_OUTBOX_PHASE52.md`
 
 ---
 
-### 2.2 `lsf-contracts`
+## 2. Tổng quan các giai đoạn tích hợp
 
-**Mục đích áp dụng:**
-- tái sử dụng contract/event chuẩn của framework
+### Giai đoạn 1 — Tích hợp Kafka starter + Quota + Contracts
 
-**Được áp vào:**
-- `inventory-service`
+Đây là giai đoạn đưa các module cốt lõi của framework vào flow đặt hàng thật trong ecommerce.
+
+**Module framework đã dùng**
+- `lsf-kafka-starter`
+- `lsf-contracts`
+- `lsf-quota-streams-starter`
+
+**Service áp dụng**
 - `order-service`
-
-**Các contract đã dùng trong tích hợp:**
-- `ConfirmReservationCommand`
-- `ReleaseReservationCommand`
-
-**Vai trò trong ecommerce:**
-- `order-service` publish command xác nhận / giải phóng reservation
-- `inventory-service` consume command và gọi quota tương ứng
-
----
-
-### 2.3 `lsf-kafka-starter`
-
-**Mục đích áp dụng:**
-- thay cấu hình Kafka producer/consumer thủ công bằng starter dùng lại được
-- chuẩn hóa các cấu hình như:
-  - bootstrap servers
-  - schema registry
-  - retry/backoff
-  - producer idempotence
-  - batch / concurrency
-  - DLQ
-
-**Được áp vào:**
-- `order-service`
+- `inventory-service`
 - `payment-service`
 
-**Vai trò trong ecommerce:**
-- `order-service` dùng starter cho `KafkaTemplate` và `@KafkaListener`
-- `payment-service` bỏ custom consumer config cũ và dùng starter thay thế
+**Mục tiêu**
+- thay cấu hình Kafka thủ công bằng starter dùng lại được
+- thay logic giữ hàng kiểu trừ stock trực tiếp bằng quota reservation
+- chuẩn hóa lifecycle reservation bằng command dùng chung
 
-> Lưu ý: `inventory-service` hiện vẫn giữ phần Kafka Streams custom (`KafkaStreamsConfig`, `SerdeConfig`, `InventoryTopology`) vì `lsf-kafka-starter` hiện không thay thế Kafka Streams topology. Inventory chỉ tích hợp quota framework; phần streams vẫn là custom của service.
+**Kết quả chính**
 
----
+Flow nghiệp vụ được chuyển từ:
 
-## 3. Ecommerce đã thay đổi những gì sau khi tích hợp framework
-
-## 3.1 Thay đổi ở `inventory-service`
-
-### a. Thêm framework dependencies
-
-Trong `pom.xml`, `inventory-service` đã thêm:
-
-- `lsf-quota-streams-starter`
-- `lsf-contracts`
-- `spring-boot-starter-data-redis`
-- `spring-jdbc`
-
-### b. Bật quota framework bằng config
-
-Trong `application.properties` đã thêm các cấu hình quota:
-
-- `lsf.quota.enabled=true`
-- `lsf.quota.store=REDIS`
-- `lsf.quota.default-hold-seconds=120`
-- `lsf.quota.keep-alive-seconds=86400`
-- `lsf.quota.allow-release-confirmed=false`
-
-và Redis:
-
-- `spring.data.redis.host=localhost`
-- `spring.data.redis.port=6379`
-
-### c. Tạo `InventoryQuotaService`
-
-Service mới này là lớp bọc quota chính trong inventory-service.
-
-Nó chịu trách nhiệm:
-- map `quotaKey`
-- map `requestId`
-- gọi `quotaService.reserve(...)`
-- gọi `quotaService.confirm(...)`
-- gọi `quotaService.release(...)`
-
-#### Mapping hiện tại
-
-- `quotaKey = shopA:flashsale_sku:<sku>`
-- `requestId = <orderNumber>:<sku>`
-
-Điều này cho phép quota hoạt động theo từng SKU trong từng workflow/order.
-
-### d. Thay đổi logic `InventoryTopology`
-
-Đây là thay đổi quan trọng nhất của toàn bộ tích hợp.
-
-**Trước khi tích hợp framework:**
-- inventory check đọc stock từ state store
-- nếu đủ hàng thì trừ stock ngay trong state store
-- nếu thanh toán fail thì order-service cộng stock lại bằng compensation event
-
-**Sau khi tích hợp framework:**
-- inventory check đọc `physicalStock` từ state store
-- gọi `InventoryQuotaService.reserve(...)`
-- trả `InventoryCheckResult` dựa trên quota decision
-- không còn trừ stock trực tiếp trong bước reserve nữa
-
-Kết quả:
-- stock vật lý và quota state được tách rõ
-- reservation được quản lý bởi framework quota
-
-### e. Thêm listener cho confirm/release command
-
-`InventoryReservationCommandListener` là listener mới để nhận:
-
-- `inventory-reservation-confirm-topic`
-- `inventory-reservation-release-topic`
-
-và gọi lần lượt:
-- `inventoryQuotaService.confirm(...)`
-- `inventoryQuotaService.release(...)`
-
-Listener này đã được làm robust để xử lý payload ở nhiều format khác nhau khi deserialize từ Kafka.
-
-### f. Thêm 2 topic mới
-
-`KafkaTopicConfig` đã được mở rộng thêm:
-- `inventory-reservation-confirm-topic`
-- `inventory-reservation-release-topic`
-
----
-
-## 3.2 Thay đổi ở `order-service`
-
-### a. Thêm framework dependencies
-
-Trong `pom.xml`, `order-service` đã thêm:
-
-- `lsf-contracts`
-- `lsf-kafka-starter`
-
-### b. Chuyển cấu hình Kafka sang chuẩn framework
-
-Các cấu hình Kafka cũ theo kiểu `spring.kafka.*` đã được comment/bỏ dần, thay bằng:
-
-- `lsf.kafka.bootstrap-servers`
-- `lsf.kafka.schema-registry-url`
-- `lsf.kafka.consumer.*`
-- `lsf.kafka.producer.*`
-- `lsf.kafka.dlq.*`
-- `lsf.kafka.observability.observation-enabled`
-
-### c. Thêm 2 topic command mới
-
-`KafkaConfig` đã được mở rộng thêm:
-- `inventory-reservation-confirm-topic`
-- `inventory-reservation-release-topic`
-
-### d. Sửa flow SAGA inventory theo hướng an toàn hơn
-
-Đây là thay đổi logic quan trọng ở `handleInventoryCheckResult(...)`.
-
-**Trước đây:**
-- fail ngay khi một SKU fail
-- có nguy cơ order nhiều SKU bị fail sớm nhưng reservation của SKU khác đến muộn gây leak/khó bù
-
-**Sau khi sửa:**
-- Redis saga state lưu:
-  - `totalItems`
-  - `receivedItems`
-  - `failed`
-  - `failureReason`
-- chỉ khi đã nhận đủ toàn bộ kết quả inventory cho order thì mới kết luận:
-  - `FAILED`, hoặc
-  - `VALIDATED`
-
-Kết quả:
-- tránh fail sớm khi order có nhiều SKU
-- release an toàn hơn
-
-### e. Sửa `handleOrderFailure(...)`
-
-**Trước đây:**
-- chỉ cập nhật order status `FAILED`
-
-**Sau khi tích hợp framework:**
-- cập nhật status `FAILED`
-- publish `ReleaseReservationCommand` cho toàn bộ items
-
-### f. Sửa `handlePaymentSuccess(...)`
-
-**Trước đây:**
-- chỉ cập nhật status `COMPLETED`
-
-**Sau khi tích hợp framework:**
-- cập nhật status `COMPLETED`
-- publish `ConfirmReservationCommand` cho từng item trong order
-
-### g. Sửa `handlePaymentFailure(...)`
-
-**Trước đây:**
-- phát `InventoryAdjustmentEvent(+quantity)` để cộng kho lại
-
-**Sau khi tích hợp framework:**
-- cập nhật status `PAYMENT_FAILED`
-- publish `ReleaseReservationCommand`
-
-Điều này là bằng chứng rõ ràng nhất cho việc flow đã chuyển từ:
-- stock compensation
+```text
+check -> deduct stock -> compensate
+```
 
 sang:
-- quota release
 
-### h. Thêm helper methods cho command publishing
-
-`OrderService` đã thêm:
-- `publishConfirmCommands(Order order)`
-- `publishReleaseCommands(Order order, String reason)`
-
-Hai helper này dùng `lsf-contracts` để phát command framework sang inventory-service.
-
-### i. Thêm endpoint GET order details
-
-Để phục vụ demo và kiểm tra kết quả flow async, `OrderController` đã bổ sung:
-- `GET /api/order/{orderNumber}`
-- `GET /api/order`
-
-### j. Thêm fallback product cache cho local integration test
-
-Trong `handleOrderPlacement(...)`, nếu product cache chưa có thì service đang tạm dùng dữ liệu fallback để tiếp tục flow.
-
-Đây là thay đổi phục vụ tích hợp/demo, giúp framework được test end-to-end mà không phụ thuộc hoàn toàn vào product cache seed từ service khác.
-
-> Đây là phần **test-oriented**. Khi đưa về production, nên thay bằng cơ chế seed/cache chính thức từ product-service.
-
-### k. Tạm nới logic auth để test local
-
-`OrderController` hiện đang dùng `userId = "test-user"` ở `POST /api/order` để đơn giản hóa việc test framework.
-
-> Đây cũng là phần **test-oriented**, không phải thay đổi nên giữ nguyên cho production.
-
----
-
-## 3.3 Thay đổi ở `payment-service`
-
-### a. Thêm framework dependency
-
-Trong `pom.xml`, `payment-service` đã thêm:
-
-- `lsf-kafka-starter`
-
-### b. Chuyển cấu hình Kafka sang chuẩn framework
-
-`application.properties` đã dùng:
-- `lsf.kafka.bootstrap-servers`
-- `lsf.kafka.schema-registry-url`
-- `lsf.kafka.consumer.*`
-- `lsf.kafka.producer.*`
-- `lsf.kafka.dlq.*`
-
-### c. Bỏ custom consumer config cũ
-
-`PaymentService` đã chuyển từ listener dùng `paymentKafkaListenerContainerFactory` sang dùng listener mặc định từ framework starter.
-
-### d. Thêm rule payment giả lập để test release
-
-`processPayment(...)` hiện dùng rule đơn giản:
-- tổng quantity = 2 -> fail
-- các case khác -> success
-
-Điều này phục vụ test deterministic cho case:
-- reserve thành công
-- payment fail
-- release
-
-> Đây là thay đổi phục vụ demo/test, không phải business rule production.
-
----
-
-## 4. Flow mới sau khi tích hợp framework
-
-### 4.1 Flow success
-
-1. Client gọi `POST /api/order`
-2. `order-service` phát `OrderPlacedEvent`
-3. order được persist và saga state được tạo trong Redis
-4. `order-service` phát `InventoryCheckRequest` cho từng SKU
-5. `inventory-service` gọi `quota reserve`
-6. nếu tất cả item pass -> `order-validated-topic`
-7. `payment-service` xử lý payment thành công
-8. `order-service` nhận `PaymentProcessedEvent`
-9. `order-service` publish `ConfirmReservationCommand`
-10. `inventory-service` confirm quota
-11. order status = `COMPLETED`
-
-### 4.2 Flow reject vì hết quota
-
-1. `order-service` phát inventory check
-2. `inventory-service` reserve bị reject vì vượt limit
-3. `order-service` chỉ kết luận fail khi đã nhận đủ kết quả inventory của toàn bộ items
-4. `order-service` cập nhật status `FAILED`
-5. `order-service` phát `ReleaseReservationCommand` nếu có reservation cần giải phóng
-
-### 4.3 Flow payment fail rồi release
-
-1. reserve thành công ở inventory-service
-2. `payment-service` trả `PaymentFailedEvent`
-3. `order-service` cập nhật status `PAYMENT_FAILED`
-4. `order-service` publish `ReleaseReservationCommand`
-5. `inventory-service` release reservation
-
----
-
-## 5. Những gì framework đã chứng minh được qua project consumer này
-
-Sau khi tích hợp vào ecommerce, framework đã chứng minh được các điểm sau:
-
-1. **Quota framework không chỉ chạy ở demo nội bộ** mà áp được vào use case giữ hàng thật trong microservices.
-2. **Kafka starter có thể thay cấu hình Kafka thủ công** ở các service event-driven như order-service và payment-service.
-3. **Contracts của framework có thể dùng trực tiếp giữa các service** mà không cần tự định nghĩa lại command/event riêng.
-4. Framework hỗ trợ một kiến trúc rõ ràng hơn cho bài toán oversell:
-   - reserve
-   - confirm
-   - release
-5. Project consumer không cần copy toàn bộ logic framework; chỉ cần thêm dependency, config, và nối vào flow nghiệp vụ hiện có.
-
----
-
-## 6. Hướng dẫn tích hợp cho project consumer khác
-
-## 6.1 Cài framework vào local Maven repo
-
-Tại thư mục `lsf-parent`:
-
-```bash
-mvn clean install -DskipTests
+```text
+reserve -> confirm / release
 ```
 
-Sau đó các artifact sẽ có trong local Maven repository (`~/.m2/repository` hoặc `C:\Users\<user>\.m2\repository`).
+### Giai đoạn 1.5 — Cleanup và chuẩn hóa nhánh tích hợp
 
----
+Đây là giai đoạn dọn code sau khi integration đã chạy pass.
 
-## 6.2 Dependency gợi ý cho project consumer
+**Mục tiêu**
+- loại bỏ hoặc đánh dấu rõ code demo/local-test
+- thêm comment ở các điểm framework hóa chính
+- chuẩn hóa lại README, traceability, before/after
+- giữ ranh giới rõ giữa framework code và consumer code
 
-### a. Nếu project cần quota giữ tài nguyên có giới hạn
+### Giai đoạn 2 / Phase 5 — Tích hợp Outbox vào `order-service`
 
-```xml
-<dependency>
-    <groupId>com.myorg.lsf</groupId>
-    <artifactId>lsf-quota-streams-starter</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
+Đây là giai đoạn mở rộng framework sang bài toán **reliable event publishing**.
 
-<dependency>
-    <groupId>com.myorg.lsf</groupId>
-    <artifactId>lsf-contracts</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
+**Module framework đã dùng**
+- `lsf-outbox-mysql-starter`
 
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
+**Service áp dụng**
+- `order-service`
 
-<dependency>
-    <groupId>org.springframework</groupId>
-    <artifactId>spring-jdbc</artifactId>
-</dependency>
+**Mục tiêu**
+Giải quyết bài toán dual write ở các đoạn:
+- update DB order status
+- rồi publish Kafka event
+
+Thay vì:
+
+```text
+save DB -> kafkaTemplate.send(...)
 ```
 
-### b. Nếu project cần chuẩn hóa Kafka producer/consumer
+hệ thống chuyển sang:
 
-```xml
-<dependency>
-    <groupId>com.myorg.lsf</groupId>
-    <artifactId>lsf-kafka-starter</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
+```text
+save DB -> append outbox row -> publisher gửi Kafka
 ```
 
----
+### Giai đoạn 2.2 / Phase 5.2 — Mở rộng outbox cho order workflow events
 
-## 6.3 Cấu hình Kafka theo chuẩn framework
+Đây là phần mở rộng sau khi outbox chạy được ở mức cơ bản.
 
-Ví dụ `application.properties`:
+**Mục tiêu**
+- chuẩn hóa việc publish status event theo `EventEnvelope`
+- tránh xung đột Schema Registry với contract cũ
+- sửa consumer để đọc envelope thay vì raw domain event
+- làm rõ ranh giới giữa topic legacy và topic framework-based
 
-```properties
-lsf.kafka.bootstrap-servers=localhost:9092
-lsf.kafka.schema-registry-url=http://localhost:8081
-
-lsf.kafka.consumer.group-id=my-group
-lsf.kafka.consumer.auto-offset-reset=earliest
-lsf.kafka.consumer.batch=true
-lsf.kafka.consumer.concurrency=4
-lsf.kafka.consumer.max-poll-records=1000
-
-lsf.kafka.consumer.retry.attempts=3
-lsf.kafka.consumer.retry.backoff=200ms
-
-lsf.kafka.dlq.enabled=true
-lsf.kafka.dlq.suffix=.DLQ
-
-lsf.kafka.producer.acks=all
-lsf.kafka.producer.idempotence=true
-lsf.kafka.producer.retries=10
-lsf.kafka.producer.max-in-flight=5
-lsf.kafka.producer.compression=snappy
-lsf.kafka.producer.linger-ms=5
-lsf.kafka.producer.batch-size=65536
-```
+**Kết quả chính**
+- dùng topic mới `order-status-envelope-topic`
+- `OrderStatusJoiner` đọc `EventEnvelope` và unwrap `payload`
+- migration outbox do **consumer project** quản lý
+- starter outbox không còn được coi là nơi sở hữu version Flyway của consumer
 
 ---
 
-## 6.4 Cấu hình quota theo chuẩn framework
+## 3. Các module framework đã áp dụng và vị trí áp dụng
 
-```properties
-lsf.quota.enabled=true
-lsf.quota.store=REDIS
-lsf.quota.default-hold-seconds=120
-lsf.quota.keep-alive-seconds=86400
-lsf.quota.allow-release-confirmed=false
+### 3.1 `lsf-kafka-starter`
 
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-```
+**Mục đích**
+- chuẩn hóa Kafka producer/consumer setup
+- gom cấu hình dùng chung
+- giảm config thủ công theo từng service
+
+**Được áp vào**
+- `order-service`
+- `payment-service`
+- listener command trong `inventory-service`
+
+**Vai trò trong ecommerce**
+- chuẩn hóa `KafkaTemplate`
+- chuẩn hóa `@KafkaListener`
+- giảm phụ thuộc vào custom consumer config từng service
+
+> Lưu ý: `inventory-service` vẫn giữ phần Kafka Streams topology riêng (`KafkaStreamsConfig`, `SerdeConfig`, `InventoryTopology`) vì `lsf-kafka-starter` hiện không thay thế Kafka Streams topology.
+
+### 3.2 `lsf-contracts`
+
+**Mục đích**
+- chia sẻ command/event dùng chung giữa các service
+
+**Contract đang dùng**
+- `ConfirmReservationCommand`
+- `ReleaseReservationCommand`
+- `EventEnvelope` (ở phase outbox)
+
+**Vai trò trong ecommerce**
+- `order-service` phát command xác nhận / giải phóng reservation
+- `inventory-service` consume command để confirm/release quota
+- `order-service` dùng `EventEnvelope` để ghi outbox event
+
+### 3.3 `lsf-quota-streams-starter`
+
+**Mục đích**
+- cung cấp core quota logic cho bài toán giữ tài nguyên có giới hạn
+
+**Được áp vào**
+- `inventory-service`
+
+**Chức năng đang dùng**
+- `reserve(...)`
+- `confirm(...)`
+- `release(...)`
+
+**Vai trò trong ecommerce**
+- thay cách trừ stock trực tiếp bằng reservation lifecycle
+- dùng Redis làm quota state
+- tách rõ stock vật lý với stock khả dụng theo quota
+
+### 3.4 `lsf-outbox-mysql-starter`
+
+**Mục đích**
+- giải quyết việc publish event tin cậy hơn trong các đoạn DB + Kafka
+- tách việc ghi event khỏi việc gửi event
+- cho phép publisher nền xử lý retry/lease/batch publishing
+
+**Được áp vào**
+- `order-service`
+
+**Vai trò trong ecommerce**
+- thay direct send của status event bằng cơ chế outbox append
+- chuẩn hóa status event theo `EventEnvelope`
+- tạo nền cho reliable event publishing và observability sau này
 
 ---
 
-## 6.5 Cách nối quota vào use case thật
+## 4. Ecommerce đã thay đổi những gì sau khi tích hợp framework
 
-### a. Ở service sở hữu tài nguyên
+### 4.1 Thay đổi ở `inventory-service`
 
-Tạo lớp service bọc quota, ví dụ `InventoryQuotaService`, để:
-- build `quotaKey`
-- build `requestId`
-- gọi `reserve / confirm / release`
+**Giai đoạn 1**
+- thêm dependency:
+  - `lsf-quota-streams-starter`
+  - `lsf-contracts`
+  - `spring-boot-starter-data-redis`
+  - `spring-jdbc`
+- thêm config quota:
+  - `lsf.quota.enabled=true`
+  - `lsf.quota.store=REDIS`
+  - `lsf.quota.default-hold-seconds=120`
+- tạo `InventoryQuotaService`
+- sửa `InventoryTopology`:
+  - trước đây pass thì trừ stock trực tiếp
+  - sau đó gọi `reserve(...)` thông qua framework quota
+- thêm `InventoryReservationCommandListener`
+- thêm topics:
+  - `inventory-reservation-confirm-topic`
+  - `inventory-reservation-release-topic`
 
-### b. Ở bước bắt đầu giữ tài nguyên
-
-Thay logic trừ tài nguyên trực tiếp bằng `quota reserve`.
-
-### c. Ở bước thành công
-
-Publish hoặc gọi `confirm`.
-
-### d. Ở bước thất bại / timeout / cancel
-
-Publish hoặc gọi `release`.
-
----
-
-## 6.6 Mapping được dùng trong ecommerce hiện tại
-
+**Mapping hiện tại**
 - `quotaKey = shopA:flashsale_sku:<sku>`
 - `requestId = <orderNumber>:<sku>`
 
-Project consumer khác có thể đổi mapping này theo:
-- tenant
-- domain object
-- resource type
-- business key
+**Ý nghĩa**
+`inventory-service` từ chỗ thao tác trực tiếp trên stock ở bước đầu đã chuyển thành service sở hữu tài nguyên và điều khiển reservation lifecycle bằng framework.
+
+### 4.2 Thay đổi ở `order-service`
+
+**Giai đoạn 1**
+- thêm dependency:
+  - `lsf-kafka-starter`
+  - `lsf-contracts`
+- thêm topics:
+  - `inventory-reservation-confirm-topic`
+  - `inventory-reservation-release-topic`
+- sửa saga inventory để đợi đủ kết quả của toàn bộ item trước khi kết luận
+- khi payment success:
+  - đổi status
+  - phát `ConfirmReservationCommand`
+- khi payment fail hoặc inventory fail:
+  - đổi status
+  - phát `ReleaseReservationCommand`
+- thay compensation kiểu `InventoryAdjustmentEvent(+qty)` bằng quota release
+
+**Giai đoạn 2 / Phase 5**
+- thêm dependency:
+  - `lsf-outbox-mysql-starter`
+- thêm bảng `lsf_outbox` qua migration riêng của consumer project
+- thêm helper/factory để tạo `EventEnvelope`
+- thay direct publish của status event bằng `OutboxWriter.append(...)`
+
+**Giai đoạn 2.2 / Phase 5.2**
+- không publish `EventEnvelope` vào `order-status-topic` cũ nữa
+- chuyển sang topic mới:
+  - `order-status-envelope-topic`
+- sửa `OrderStatusJoiner` để consume envelope topic
+- unwrap `payload` thành `OrderStatusEvent`
+- chuẩn hóa quyết định: **migration outbox do consumer project giữ**
+- xử lý rõ boundary:
+  - framework cung cấp runtime outbox
+  - consumer project quyết định version Flyway, topic và mapping event
+
+**Vì sao dùng topic mới**
+Trước khi tích hợp outbox, `order-status-topic` đã có contract cũ là `OrderStatusEvent`.
+Khi dùng outbox, payload gửi đi là `EventEnvelope`, tức là schema thay đổi hoàn toàn. Để tránh xung đột Schema Registry và giữ rõ ràng contract cũ/mới, phase 5.2 sử dụng topic mới cho envelope thay vì tái dùng `order-status-topic`.
+
+**Ý nghĩa**
+`order-service` trở thành nơi:
+- giữ business orchestration
+- ánh xạ domain event sang framework contract
+- ghi outbox thay vì gửi Kafka trực tiếp cho status event
+- quản lý contract evolution giữa topic cũ và topic envelope mới
+
+### 4.3 Thay đổi ở `payment-service`
+
+**Giai đoạn 1**
+- thêm dependency:
+  - `lsf-kafka-starter`
+- bỏ custom consumer config cũ
+- listener dùng cấu hình từ starter
+- vẫn giữ vai trò phát:
+  - `payment-processed-topic`
+  - `payment-failed-topic`
+
+**Ý nghĩa**
+`payment-service` không đổi business role, nhưng được chuẩn hóa hơn ở tầng Kafka integration.
+
+### 4.4 Thay đổi ở `OrderStatusJoiner`
+
+**Trước outbox**
+Joiner đọc:
+- `payment-processed-topic`
+- `order-status-topic` chứa raw `OrderStatusEvent`
+
+**Sau phase 5**
+Joiner được sửa để:
+- đọc `order-status-envelope-topic`
+- deserialize `EventEnvelope`
+- unwrap `payload` thành `OrderStatusEvent`
+- rồi join với payment stream như cũ
+
+**Ý nghĩa**
+Đây là bằng chứng rõ nhất cho việc phase outbox không chỉ thêm bảng outbox, mà còn thay đổi contract xử lý status event trong hệ thống.
 
 ---
 
-## 6.7 Test cases tối thiểu cho project consumer
+## 5. Những thành phần đã viết được dùng ở giai đoạn nào
 
-Khi tích hợp framework vào một project khác, nên test ít nhất 3 case:
+### Giai đoạn 1 — Kafka + Quota + Contracts
 
-1. `reserve thành công -> confirm`
-2. `reserve reject vì vượt limit`
-3. `reserve thành công -> business fail -> release`
+**`inventory-service`**
+- `InventoryQuotaService`
+- `InventoryReservationCommandListener`
+- sửa `InventoryTopology`
+- thêm topic confirm/release
 
-Nếu 3 case này chạy đúng, nghĩa là tích hợp quota cơ bản đã thành công.
+**`order-service`**
+- sửa `OrderService`:
+  - `handleInventoryCheckResult(...)`
+  - `handlePaymentSuccess(...)`
+  - `handlePaymentFailure(...)`
+  - `handleOrderFailure(...)`
+  - `publishConfirmCommands(...)`
+  - `publishReleaseCommands(...)`
+- thêm topic config cho reservation lifecycle
+
+**`payment-service`**
+- bỏ custom Kafka consumer config
+- listener dùng starter
+
+### Giai đoạn 1.5 — Cleanup / tài liệu hóa
+
+Các thành phần/document được thêm hoặc cập nhật:
+- `README_ecommerce_lsf_short.md`
+- `README_lsf_ecommerce_integration.md`
+- `LSF_INTEGRATION_TRACEABILITY.md`
+- `LSF_INTEGRATION_BEFORE_AFTER.md`
+- comment ngắn ở các điểm framework hóa chính
+
+### Giai đoạn 2 / Phase 5 — Outbox cơ bản
+
+**`order-service`**
+- migration tạo bảng `lsf_outbox`
+- helper/factory tạo `EventEnvelope`
+- inject `OutboxWriter`
+- thay direct status publish bằng `outbox append`
+
+### Giai đoạn 2.2 / Phase 5.2 — Outbox contract evolution
+
+**`order-service`**
+- topic mới `order-status-envelope-topic`
+- đổi helper append sang envelope topic
+- thống nhất `EventEnvelope` cho status publishing
+- chốt việc migration outbox thuộc consumer project
+
+**`OrderStatusJoiner`**
+- đổi serde / consume type từ `OrderStatusEvent` sang `EventEnvelope`
+- unwrap payload trước khi join
+- không còn phụ thuộc vào raw status event trên topic cũ trong flow mới
 
 ---
 
-## 7. Các thay đổi đang mang tính demo/test
+## 6. Đoạn nào là phần framework, đoạn nào là phần consumer project
 
-Các mục dưới đây phục vụ việc chứng minh framework trong môi trường local, nên cần đánh dấu rõ:
+### 6.1 Phần thuộc framework
+- Kafka starter để chuẩn hóa Kafka config
+- quota API và implementation ở starter quota
+- reservation contract:
+  - `ConfirmReservationCommand`
+  - `ReleaseReservationCommand`
+- outbox runtime:
+  - `OutboxWriter`
+  - outbox publisher
+  - outbox processing model
+- `EventEnvelope`
 
-- `OrderController` dùng `test-user` thay vì principal/JWT thật
-- `OrderService` có fallback product cache khi cache chưa có
-- `PaymentService` dùng rule giả lập `totalQty == 2 -> fail`
-- `eureka.client.enabled=false` ở một số service để chạy local đơn giản hơn
+### 6.2 Phần thuộc consumer project
+- business mapping từ order -> `workflowId`, `resourceId`
+- cách xây `quotaKey`, `requestId`
+- `InventoryTopology`
+- `OrderService` orchestration
+- `OrderStatusJoiner`
+- migration version cụ thể trong `order-service`
+- chọn topic nào dùng contract cũ, topic nào dùng envelope mới
+- cách unwrap payload và duy trì tương thích với payment flow
 
-Các thay đổi này nên được:
-- giữ trong nhánh demo/integration
-- hoặc revert khi đưa về môi trường production gần thật
+### 6.3 Ý nghĩa
+Framework không thay toàn bộ domain của ecommerce.
+Framework cung cấp các cơ chế dùng chung ở tầng hạ tầng và lifecycle, còn consumer project chịu trách nhiệm nối các cơ chế đó vào luồng nghiệp vụ cụ thể.
 
 ---
 
-## 8. Các commit message gợi ý theo từng bước
+## 7. Flow sau khi có thêm Outbox Phase 5.2
 
-### Bước 1 - áp Kafka starter vào order-service và payment-service
+### 7.1 Flow reserve / confirm / release
+1. Client gửi order
+2. `order-service` tạo workflow
+3. `inventory-service` reserve bằng quota
+4. nếu payment success -> `ConfirmReservationCommand`
+5. nếu payment fail / inventory fail -> `ReleaseReservationCommand`
 
+### 7.2 Flow status publishing sau outbox
+1. `order-service` cập nhật status trong DB
+2. trong cùng transaction, append `EventEnvelope` vào `lsf_outbox`
+3. outbox publisher đọc row chưa gửi
+4. publish sang `order-status-envelope-topic`
+5. `OrderStatusJoiner` consume envelope, unwrap payload, join với payment stream
+
+### 7.3 Flow contract evolution sau phase 5.2
+- `order-status-topic` được xem là topic legacy cho raw status event
+- `order-status-envelope-topic` là topic mới cho contract framework-based
+- consumer mới đọc envelope topic, không ép phá contract cũ
+
+**Ý nghĩa**
+Đây là bước mở rộng từ “framework giải quyết quota” sang “framework giải quyết reliable event publishing và quản lý evolution của event contract”.
+
+---
+
+## 8. Kịch bản test/đánh giá nên dùng sau phase 5.2
+
+### Kịch bản 1 — Reserve thành công rồi confirm
+- order được nhận
+- quota reserve thành công
+- payment success
+- reservation confirm
+- order hoàn thành
+- status event được ghi vào outbox và publish ra topic envelope
+
+### Kịch bản 2 — Reserve bị reject
+- inventory reserve reject
+- order fail
+- status fail được ghi qua outbox
+
+### Kịch bản 3 — Payment fail rồi release
+- reserve thành công
+- payment fail
+- release reservation
+- status `PAYMENT_FAILED` được ghi qua outbox
+
+### Kịch bản 4 — Kiểm tra dual write
+- update status trong DB
+- kiểm tra có row trong `lsf_outbox`
+- publisher gửi thành công
+- row được mark sent / retry theo cấu hình
+
+### Kịch bản 5 — Kiểm tra envelope consumer
+- `OrderStatusJoiner` đọc `order-status-envelope-topic`
+- unwrap `payload`
+- join đúng với `payment-processed-topic`
+
+---
+
+## 9. Những thay đổi mang tính demo/local test
+
+Tùy branch cleanup/demo, có thể còn hoặc đã được loại bỏ:
+- `test-user`
+- `permitAll()` tạm
+- mock payment rule
+- fallback product cache
+- compatibility payload handling trong listener
+
+Nên phân biệt rõ:
+- đây là code phục vụ local demo/integration
+- không phải phần lõi của framework
+
+---
+
+## 10. Gợi ý commit message theo từng giai đoạn
+
+### Giai đoạn 1
 ```text
 feat: integrate lsf-kafka-starter into order and payment services
-```
-
-Hoặc chi tiết hơn:
-
-```text
-feat: replace manual Kafka consumer/producer config with lsf-kafka-starter
-```
-
-### Bước 2 - áp quota starter + contracts vào inventory-service
-
-```text
 feat: integrate lsf quota and contracts into inventory service
-```
-
-### Bước 3 - đổi flow inventory từ stock deduction sang quota reserve
-
-```text
 refactor: replace direct inventory deduction with quota reservation flow
-```
-
-### Bước 4 - thêm confirm/release command giữa order-service và inventory-service
-
-```text
 feat: add reservation confirm and release commands for order lifecycle
-```
-
-### Bước 5 - sửa order saga để đợi đủ kết quả inventory trước khi kết luận
-
-```text
 fix: make inventory saga wait for all item results before completing order
 ```
 
-### Bước 6 - đổi compensation payment failure sang quota release
-
+### Giai đoạn 1.5
 ```text
-refactor: replace inventory restock compensation with quota release
+docs: add traceability, before-after notes, and framework integration comments
+refactor: clean up integration code and remove temporary noise
 ```
 
-### Bước 7 - thêm endpoint và hỗ trợ local demo/test
-
+### Giai đoạn 2 / Phase 5
 ```text
-chore: add local test helpers and order query endpoints for framework demo
+feat: add lsf outbox mysql starter and outbox schema to order service
+feat: publish order status changes via lsf outbox envelope
 ```
 
-### Nếu muốn gộp thành 1 commit tổng cho nhánh demo
-
+### Giai đoạn 2.2 / Phase 5.2
 ```text
-feat: integrate lsf framework into ecommerce reserve-confirm-release flow
+feat: expand lsf outbox integration for order workflow events
+refactor: consume order status event envelope in status joiner
+docs: update outbox phase 5.2 integration documentation
 ```
 
 ---
 
-## 9. Kết luận
+## 11. Kết luận
 
-Qua tích hợp này, dự án ecommerce đã trở thành một **project consumer thực tế** cho framework LSF. Giá trị chính không nằm ở việc thêm demo mới trong framework, mà ở chỗ framework đã được dùng để giải quyết một bài toán nghiệp vụ cụ thể trong hệ thống microservices thật:
+Sau khi bổ sung phase outbox 5.2, dự án ecommerce không chỉ chứng minh được framework LSF ở bài toán quota/reservation, mà còn mở rộng sang bài toán **reliable event publishing và contract evolution**. Điều này làm rõ hơn giá trị tái sử dụng của framework ở ba lớp:
 
-- chống oversell
-- giữ hàng tạm thời
-- xác nhận giữ hàng khi thành công
-- giải phóng giữ hàng khi thất bại
+1. **resource lifecycle**
+   - reserve
+   - confirm
+   - release
 
-Đây là bằng chứng rõ ràng nhất cho khả năng **tái sử dụng framework** trong các dự án khác.
+2. **event lifecycle**
+   - append vào outbox
+   - publish nền
+   - unwrap envelope ở consumer
+
+3. **event contract management**
+   - giữ contract cũ ở topic legacy
+   - tách contract mới sang topic envelope riêng
+
+Nhờ đó, branch tích hợp của ecommerce trở thành bằng chứng rõ ràng cho việc framework LSF đã được áp dụng vào một project consumer thực tế theo nhiều giai đoạn phát triển, chứ không chỉ dừng ở demo nội bộ.
