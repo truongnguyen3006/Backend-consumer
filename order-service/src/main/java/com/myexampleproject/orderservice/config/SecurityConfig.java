@@ -16,7 +16,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Tắt CSRF (vì chúng ta dùng API)
+                // 1. Tắt CSRF (vì dùng API)
                 .csrf(csrf -> csrf.disable())
 
                 // 2. Yêu cầu TẤT CẢ request phải được xác thực
@@ -25,6 +25,11 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
+
+//                        .requestMatchers("/lsf/outbox/**").hasRole("ADMIN")
+                                .requestMatchers("/lsf/outbox/**").authenticated()
+//                                .requestMatchers("/admin/outbox/**").hasRole("ADMIN")
+                                .requestMatchers("/admin/outbox/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/order/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/order").authenticated()
                         .anyRequest().authenticated()
