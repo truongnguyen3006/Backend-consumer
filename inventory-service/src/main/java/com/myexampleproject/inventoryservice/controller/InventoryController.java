@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myexampleproject.common.event.InventoryAdjustmentEvent;
 import com.myexampleproject.inventoryservice.dto.InventoryAvailabilityResponse;
+import com.myexampleproject.inventoryservice.service.InventoryAdjustmentGuardService;
 import com.myexampleproject.inventoryservice.service.InventoryAvailabilityService;
 import com.myexampleproject.inventoryservice.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class InventoryController {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final InventoryService inventoryService;
     private final InventoryAvailabilityService inventoryAvailabilityService;
+    private final InventoryAdjustmentGuardService inventoryAdjustmentGuardService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping("/adjust")
@@ -55,10 +57,16 @@ public class InventoryController {
                     "current", current,
                     "attempted", delta
             ));
+        inventoryAdjustmentGuardService.validateAdjustment(
+                event.getSkuCode(),
+                current,
+                delta
+        );
         kafkaTemplate.send("inventory-adjustment-topic", event.getSkuCode(), event);
         Integer updated = inventoryService.waitForUpdatedQuantity(event.getSkuCode());
         if (updated == null)
             return ResponseEntity.accepted().body(Map.of("status", "queued"));
+
         return ResponseEntity.ok(Map.of(
                 "skuCode", event.getSkuCode(),
                 "newQuantity", updated
