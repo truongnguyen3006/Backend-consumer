@@ -1,17 +1,19 @@
 global:
-  scrape_interval: 1s # Cứ 15 giây quét 1 lần
+  scrape_interval: 5s
+  evaluation_interval: 5s
 
 scrape_configs:
-  - job_name: 'microservices'
-    metrics_path: '/actuator/prometheus'
+  - job_name: 'order-service'
+    metrics_path: /actuator/prometheus
     static_configs:
-      - targets:
-          # Quan trọng: "host.docker.internal" là cách Docker
-          # (chạy Prometheus) có thể "nhìn thấy" service của bạn
-          # đang chạy trên localhost (IDE).
+      - targets: ['host.docker.internal:8086']
 
-          - 'host.docker.internal:8086' # order-service
-          - 'host.docker.internal:8084' # cart-service
-          - 'host.docker.internal:8082' # inventory-service
-          - 'host.docker.internal:8089' # payment-service
-          - 'host.docker.internal:8087' # notification-service
+  - job_name: 'inventory-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+
+  - job_name: 'payment-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8089']
