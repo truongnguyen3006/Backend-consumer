@@ -17,6 +17,7 @@
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <confluent.version>7.6.1</confluent.version>
+        <lsf.version>1.0-SNAPSHOT</lsf.version>
     </properties>
 
     <repositories>
@@ -112,6 +113,12 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- LSF eventing: tích hợp listener envelope-based vào consumer thật -->
+        <dependency>
+            <groupId>com.myorg.lsf</groupId>
+            <artifactId>lsf-eventing-starter</artifactId>
+            <version>${lsf.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -142,6 +149,4 @@
             </plugin>
         </plugins>
     </build>
-
-
 </project>

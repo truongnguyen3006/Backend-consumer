@@ -1,6 +1,10 @@
 package com.myexampleproject.notificationservice.config;
 
-import com.myexampleproject.common.event.*;
+import com.myexampleproject.common.event.OrderFailedEvent;
+import com.myexampleproject.common.event.OrderPlacedEvent;
+import com.myexampleproject.common.event.PaymentFailedEvent;
+import com.myexampleproject.common.event.PaymentProcessedEvent;
+import com.myorg.lsf.contracts.core.envelope.EventEnvelope;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaDeserializer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -28,7 +32,6 @@ public class KafkaConsumerConfig {
         return props;
     }
 
-    // -------- OrderPlacedEvent --------
     @Bean
     public ConsumerFactory<String, OrderPlacedEvent> orderPlacedConsumerFactory() {
         Map<String, Object> props = baseProps();
@@ -44,7 +47,6 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // -------- PaymentProcessedEvent --------
     @Bean
     public ConsumerFactory<String, PaymentProcessedEvent> paymentProcessedConsumerFactory() {
         Map<String, Object> props = baseProps();
@@ -60,7 +62,6 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // -------- PaymentFailedEvent --------
     @Bean
     public ConsumerFactory<String, PaymentFailedEvent> paymentFailedConsumerFactory() {
         Map<String, Object> props = baseProps();
@@ -88,6 +89,22 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, OrderFailedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(orderFailedConsumerFactory());
+        return factory;
+    }
+
+    /**
+     * Generic factory required by lsf-eventing-starter.
+     * It consumes EventEnvelope from the dedicated envelope topic.
+     */
+    @Bean(name = "kafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+        Map<String, Object> props = baseProps();
+        props.put("json.value.type", EventEnvelope.class.getName());
+
+        ConsumerFactory<String, Object> consumerFactory = new DefaultKafkaConsumerFactory<>(props);
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
         return factory;
     }
 }
