@@ -51,11 +51,32 @@ public class InventoryQuotaService {
                 skuCode, item.getQuantity(), result.used(), result.limit(), result.remaining());
 
         if (success) {
-            log.info("QUOTA RESERVE OK -> order={}, sku={}, qty={}, decision={}, used={}, limit={}, remaining={}",
-                    orderNumber, skuCode, item.getQuantity(), result.decision(), result.used(), result.limit(), result.remaining());
+            log.info(
+                    "QUOTA RESERVE -> order={}, sku={}, quotaKey={}, requestId={}, qty={}, decision={}, used={}, limit={}, remaining={}, holdUntil={}",
+                    orderNumber,
+                    skuCode,
+                    quotaKey,
+                    requestId,
+                    item.getQuantity(),
+                    result.decision(),
+                    result.used(),
+                    result.limit(),
+                    result.remaining(),
+                    result.holdUntilEpochMs()
+            );
         } else {
-            log.warn("QUOTA RESERVE REJECTED -> order={}, sku={}, qty={}, used={}, limit={}, remaining={}",
-                    orderNumber, skuCode, item.getQuantity(), result.used(), result.limit(), result.remaining());
+            log.warn(
+                    "QUOTA RESERVE -> order={}, sku={}, quotaKey={}, requestId={}, qty={}, decision={}, used={}, limit={}, remaining={}",
+                    orderNumber,
+                    skuCode,
+                    quotaKey,
+                    requestId,
+                    item.getQuantity(),
+                    result.decision(),
+                    result.used(),
+                    result.limit(),
+                    result.remaining()
+            );
         }
 
         return new InventoryCheckResult(orderNumber, item, success, reason);
@@ -65,8 +86,17 @@ public class InventoryQuotaService {
         String quotaKey = quotaKey(resourceId);
         String requestId = requestId(workflowId, resourceId);
         QuotaResult result = quotaService.confirm(quotaKey, requestId);
-        log.info("QUOTA CONFIRM -> workflowId={}, resourceId={}, decision={}, used={}, state={}",
-                workflowId, resourceId, result.decision(), result.used(), result.state());
+        if (result.decision() == QuotaDecision.NOT_FOUND) {
+            log.warn(
+                    "QUOTA CONFIRM -> workflowId={}, resourceId={}, quotaKey={}, requestId={}, decision={}, used={}, state={}",
+                    workflowId, resourceId, quotaKey, requestId, result.decision(), result.used(), result.state()
+            );
+        } else {
+            log.info(
+                    "QUOTA CONFIRM -> workflowId={}, resourceId={}, quotaKey={}, requestId={}, decision={}, used={}, state={}",
+                    workflowId, resourceId, quotaKey, requestId, result.decision(), result.used(), result.state()
+            );
+        }
         return result;
     }
 
@@ -74,8 +104,17 @@ public class InventoryQuotaService {
         String quotaKey = quotaKey(resourceId);
         String requestId = requestId(workflowId, resourceId);
         QuotaResult result = quotaService.release(quotaKey, requestId);
-        log.info("QUOTA RELEASE -> workflowId={}, resourceId={}, decision={}, used={}, reason={}",
-                workflowId, resourceId, result.decision(), result.used(), reason);
+        if (result.decision() == QuotaDecision.NOT_FOUND) {
+            log.warn(
+                    "QUOTA RELEASE -> workflowId={}, resourceId={}, quotaKey={}, requestId={}, decision={}, used={}, reason={}",
+                    workflowId, resourceId, quotaKey, requestId, result.decision(), result.used(), reason
+            );
+        } else {
+            log.info(
+                    "QUOTA RELEASE -> workflowId={}, resourceId={}, quotaKey={}, requestId={}, decision={}, used={}, reason={}",
+                    workflowId, resourceId, quotaKey, requestId, result.decision(), result.used(), reason
+            );
+        }
         return result;
     }
 

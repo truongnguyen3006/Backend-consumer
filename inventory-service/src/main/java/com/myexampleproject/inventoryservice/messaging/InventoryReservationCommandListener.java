@@ -80,7 +80,13 @@ public class InventoryReservationCommandListener {
     public void handleReservationCommand(ConsumerRecord<String, Object> record) {
         try {
             EventEnvelope envelope = (EventEnvelope) record.value();
-
+            log.info(
+                    "RESERVATION COMMAND RECEIVED -> topic={}, key={}, eventId={}, eventType={}",
+                    record.topic(),
+                    record.key(),
+                    envelope.getEventId(),
+                    envelope.getEventType()
+            );
             switch (record.topic()) {
                 case "inventory-reservation-confirm-envelope-topic" -> {
                     ConfirmReservationCommand cmd = objectMapper.convertValue(
