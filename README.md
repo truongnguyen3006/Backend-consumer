@@ -158,3 +158,9 @@ Authorization: Bearer <access_token>
 - Đây vẫn là consumer project để chứng minh framework, không phải một backend ecommerce hoàn chỉnh theo hướng production
 - Một số phần domain và orchestration vẫn thuộc về project consumer, framework không thay toàn bộ business flow
 - Benchmark tải lớn vẫn phụ thuộc khá nhiều vào môi trường local
+
+## Tác giả
+
+- **Tên:** Nguyễn Lâm Trường
+- **Email:** lamtruongnguyen2004@gmail.com
+- **GitHub:** [https://github.com/truongnguyen3006](https://github.com/truongnguyen3006)
