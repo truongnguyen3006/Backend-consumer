@@ -32,11 +32,13 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-json-schema-serializer</artifactId>
             <version>${confluent.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -44,6 +46,18 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- LSF starters -->
+        <dependency>
+            <groupId>com.myorg.lsf</groupId>
+            <artifactId>lsf-kafka-starter</artifactId>
+            <version>${lsf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.myorg.lsf</groupId>
+            <artifactId>lsf-eventing-starter</artifactId>
+            <version>${lsf.version}</version>
         </dependency>
 
         <dependency>
@@ -93,7 +107,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
@@ -102,7 +115,6 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-tracing-bridge-brave</artifactId>
         </dependency>
-
         <dependency>
             <groupId>io.zipkin.reporter2</groupId>
             <artifactId>zipkin-reporter-brave</artifactId>
@@ -111,13 +123,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
-        </dependency>
-
-        <!-- LSF eventing: tích hợp listener envelope-based vào consumer thật -->
-        <dependency>
-            <groupId>com.myorg.lsf</groupId>
-            <artifactId>lsf-eventing-starter</artifactId>
-            <version>${lsf.version}</version>
         </dependency>
     </dependencies>
 

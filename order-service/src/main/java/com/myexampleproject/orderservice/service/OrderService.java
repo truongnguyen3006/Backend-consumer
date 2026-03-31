@@ -239,8 +239,6 @@ public class OrderService {
                 .skuCode(entity.getSkuCode())
                 .price(entity.getPrice())
                 .quantity(entity.getQuantity())
-
-                // ✅ TRẢ VỀ CHO FRONTEND
                 .productName(entity.getProductName())
                 .color(entity.getColor())
                 .size(entity.getSize())

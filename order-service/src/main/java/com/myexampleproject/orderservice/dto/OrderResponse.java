@@ -19,8 +19,19 @@ public class OrderResponse {
     private Long id;
     private String orderNumber;
     private String status;
-    private BigDecimal totalPrice; // ✅ Thêm
+    private BigDecimal totalPrice;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime orderDate;
+
     private List<OrderLineItemsDto> orderLineItemsList;
+
+    /**
+     * Dùng cho các bước tiếp theo:
+     * - lọc đơn hàng theo user hiện tại (/api/order/me)
+     * - render cột khách hàng ở admin
+     */
+    private String userId;
+    private String customerName;
+    private String customerEmail;
 }

@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .pathMatchers("/eureka/**").permitAll()
                         .pathMatchers("/auth/**").permitAll()
                         .pathMatchers("/actuator/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/system/outbox/**").authenticated()
+                        .pathMatchers(HttpMethod.GET, "/api/system/outbox").authenticated()
                         .pathMatchers(HttpMethod.GET, "/api/product/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/inventory/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/order/**").permitAll()
@@ -50,7 +52,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ Cache JWK decoders (manual version of `.cache(Duration)`)
+    // Cache JWK decoders (manual version of `.cache(Duration)`)
     private ReactiveJwtDecoder getCachedDecoder(String jwkUri) {
         CachedDecoder cached = jwkDecoderCache.get(jwkUri);
         if (cached != null && cached.isValid()) {
@@ -62,7 +64,7 @@ public class SecurityConfig {
         return newDecoder;
     }
 
-    // ✅ Class phụ để giữ decoder và timestamp
+    // Class phụ để giữ decoder và timestamp
     private static class CachedDecoder {
         private final ReactiveJwtDecoder decoder;
         private final Instant createdAt;

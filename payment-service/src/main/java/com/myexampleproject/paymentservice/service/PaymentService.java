@@ -69,8 +69,8 @@ public class PaymentService {
     }
 
     private boolean simulatePaymentDecision(OrderValidatedEvent event) {
-//        int totalQty = event.getItems().stream().mapToInt(item -> item.getQuantity()).sum();
-//        return totalQty != 2;
-        return false;
+        int totalQty = event.getItems().stream().mapToInt(item -> item.getQuantity()).sum();
+        return totalQty != 2;
+//        return false;
     }
 }
