@@ -76,6 +76,43 @@ và:
 ```text
 update DB rồi gửi Kafka trực tiếp -> append to outbox -> publisher gửi nền
 ```
+## Cách chạy local
+
+### 1. Clone project
+
+```bash
+git clone  https://github.com/truongnguyen3006/Backend-consumer.git
+cd <project-folder>
+```
+
+### 2. Chạy hạ tầng
+
+Tại thư mục gốc backend:
+
+```bash
+docker compose up -d
+```
+
+### 3. Chạy các service Spring Boot
+
+Có thể chạy bằng IDE hoặc Maven. Thứ tự nên chạy:
+
+1. `discovery-server`
+2. `api-gateway`
+3. `user-service`
+4. `product-service`
+5. `inventory-service`
+6. `order-service`
+7. `payment-service`
+8. `cart-service`
+9. `notification-service`
+
+Ví dụ:
+
+```bash
+cd order-service
+mvn spring-boot:run
+```
 
 ## Kiểm thử tải với JMeter
 
