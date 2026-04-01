@@ -35,6 +35,19 @@ Nói ngắn gọn: repo này dùng để chứng minh **framework đã được 
 | Dùng raw status event trên topic cũ | Chuyển sang `EventEnvelope` và topic riêng `order-status-envelope-topic` |
 | UI/admin dễ nhầm giữa tồn vật lý và tồn có thể bán | Tách rõ **physical stock** và **available stock** qua API availability |
 
+## Tài liệu đối chiếu tích hợp
+
+Để xem rõ framework đã được áp vào đâu trong consumer project, có thể đọc thêm:
+
+- `docs/LSF_INTEGRATION_BEFORE_AFTER.md`
+- `docs/LSF_INTEGRATION_TRACEABILITY.md`
+
+Hai tài liệu này mô tả:
+- trước và sau khi tích hợp framework hệ thống thay đổi ra sao
+- module nào của LSF được dùng ở service nào
+- file/class/method nào là điểm tích hợp chính
+- phần nào thuộc framework, phần nào vẫn là business logic của consumer project
+
 ## Những phần tích hợp nổi bật
 
 ### 1. Quota-based reservation trong `inventory-service`
