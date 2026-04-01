@@ -39,8 +39,8 @@ Nói ngắn gọn: repo này dùng để chứng minh **framework đã được 
 
 Để xem rõ framework đã được áp vào đâu trong consumer project, có thể đọc thêm:
 
-- `docs/LSF_INTEGRATION_BEFORE_AFTER.md`
-- `docs/LSF_INTEGRATION_TRACEABILITY.md`
+- [`docs/LSF_INTEGRATION_BEFORE_AFTER.md`](docs/LSF_INTEGRATION_BEFORE_AFTER.md)
+- [`docs/LSF_INTEGRATION_TRACEABILITY.md`](docs/LSF_INTEGRATION_TRACEABILITY.md)
 
 Hai tài liệu này mô tả:
 - trước và sau khi tích hợp framework hệ thống thay đổi ra sao
