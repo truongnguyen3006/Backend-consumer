@@ -117,7 +117,7 @@ update DB rồi gửi Kafka trực tiếp -> append to outbox -> publisher gửi
 ### 0. Cài framework LSF vào local Maven
 
 ```bash
-git clone https://github.com/<your-account>/LSF-Microservices-Support-Framework.git
+git clone https://github.com/truongnguyen3006/LSF-Microservices-Support-Framework.git
 cd LSF-Microservices-Support-Framework
 mvn clean install -DskipTests
 ```
