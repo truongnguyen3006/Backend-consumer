@@ -1,4 +1,4 @@
-# LSF Integration Before vs After (cập nhật đến Outbox Phase 5.2)
+# LSF Integration Before vs After (cập nhật đến Outbox Phase 7)
 
 Tài liệu này mô tả ngắn gọn trạng thái **trước khi tích hợp framework LSF**, **sau khi tích hợp Kafka/Quota/Contracts**, **sau khi mở rộng thêm Outbox**, và **sau khi hoàn tất Phase 5.2** vào dự án ecommerce.
 
@@ -295,3 +295,325 @@ reuse old topic -> introduce dedicated envelope topic
 - outbox admin
 - observability
 - benchmark / resilience evaluation
+
+
+---
+
+## 7. Bổ sung cập nhật sau Phase 5.2 — Phase 7 (Outbox Admin / Availability / Observability)
+
+Phần này **được bổ sung thêm** dựa trên các thay đổi tích hợp trong `docs_change`, nhằm nối tiếp tài liệu hiện có mà **không thay đổi nội dung các mục trước**. Nếu các phase trước tập trung vào **framework hóa flow reservation** và **framework hóa reliable event publishing**, thì Phase 7 tập trung vào việc làm cho hệ thống:
+- **vận hành được**
+- **quan sát được**
+- **giải thích/demo được**
+
+Nói cách khác, Phase 7 không thay business flow cốt lõi của ecommerce, mà mở rộng phần “sau tích hợp” theo ba hướng:
+1. outbox không chỉ publish được mà còn **admin/operate** được
+2. inventory không chỉ có “stock” mà còn có khái niệm **available stock** rõ ràng
+3. quota/outbox không chỉ chạy trong log mà còn **đo đếm và hiển thị** được qua metrics/dashboard
+
+### 7.1. Sau Phase 7 nhìn tổng thể hệ thống thay đổi như thế nào?
+
+Nếu ở các phase trước hệ thống chuyển từ:
+
+```text
+direct deduction -> reserve / confirm / release
+```
+
+và:
+
+```text
+direct send -> append to outbox -> publish envelope
+```
+
+thì sau Phase 7 hệ thống đi thêm một bước nữa:
+
+```text
+framework integration -> operational visibility -> demo evidence
+```
+
+Điều này có nghĩa là các cơ chế đã tích hợp không còn chỉ tồn tại ở mức code/runtime, mà đã có thêm:
+- API vận hành
+- API giải thích dữ liệu khả dụng
+- metrics/logs
+- dashboard tối thiểu
+- checklist và evidence phục vụ demo/bảo vệ
+
+---
+
+## 8. Before vs After bổ sung theo từng nhánh của Phase 7
+
+### 8.1. Outbox Admin
+
+**Trước Phase 7**
+- `lsf_outbox` chủ yếu được nhìn như cơ chế kỹ thuật nền
+- muốn kiểm tra row outbox thường phải:
+  - đọc log
+  - query DB trực tiếp
+  - suy luận thủ công trạng thái publish
+- khó chứng minh rõ với người xem rằng outbox không chỉ “có code” mà còn “vận hành được”
+
+**Sau Phase 7**
+- `order-service` tích hợp thêm `lsf-outbox-admin-starter`
+- có base path admin để thao tác trực tiếp với outbox:
+
+```http
+/admin/outbox
+```
+
+- có thể:
+  - list row
+  - filter theo `status`, `topic`, `from`, `to`
+  - xem detail theo `id`
+  - xem theo `eventId`
+  - `mark-failed`
+  - `requeue/retry`
+- có thể nhìn rõ các trạng thái như:
+  - `NEW`
+  - `SENT`
+  - `FAILED`
+  - `RETRY`
+- có thể xem thêm:
+  - `retryCount`
+  - `lastError`
+  - `nextAttemptAt`
+  - `sentAt`
+
+**Ý nghĩa**
+Outbox được nâng từ “cơ chế publish tin cậy trong nền” lên thành “thành phần có thể kiểm tra, vận hành và giải thích được khi demo”.
+
+### 8.2. Availability / Inventory semantics
+
+**Trước Phase 7**
+- sau khi tích hợp quota, hệ thống đã có khái niệm reservation lifecycle
+- tuy nhiên ở tầng API/UI vẫn dễ bị hiểu nhầm giữa:
+  - stock vật lý
+  - stock còn bán được
+- endpoint cũ `GET /api/inventory/{sku}` dễ bị dùng như thể đó là “số lượng khả dụng cho khách mua”
+
+**Sau Phase 7**
+- bổ sung endpoint mới:
+
+```http
+GET /api/inventory/{sku}/availability
+```
+
+- giữ nguyên endpoint cũ:
+
+```http
+GET /api/inventory/{sku}
+```
+
+- ngữ nghĩa được tách rõ:
+  - endpoint cũ = **physical stock**
+  - endpoint mới = **available stock**
+- công thức làm rõ:
+
+```text
+availableStock = max(physicalStock - quotaUsed, 0)
+```
+
+- response availability có thể hiển thị rõ:
+  - `physicalStock`
+  - `quotaUsed`
+  - `reservedCount`
+  - `confirmedCount`
+  - `availableStock`
+  - `quotaKey`
+- customer-facing UI chuyển sang dùng `availableStock`
+- admin UI hiển thị tách bạch tồn vật lý và tồn khả dụng
+- bổ sung guard backend:
+  - không cho giảm `physicalStock` xuống dưới `quotaUsed`
+  - trả `409 Conflict` với thông báo rõ ràng
+
+**Ý nghĩa**
+Sau Phase 7, inventory không chỉ dừng ở mức “đã dùng quota framework” mà còn được diễn giải rõ ràng thành hai lớp dữ liệu phục vụ hai mục đích khác nhau:
+- quản trị / internal
+- bán hàng / customer-facing
+
+### 8.3. Observability
+
+**Trước Phase 7**
+- bằng chứng tích hợp chủ yếu đến từ:
+  - code
+  - log runtime
+  - DB/query tay
+- khó cho hội đồng hoặc người review nhìn nhanh sự khác biệt của quota/outbox flow
+
+**Sau Phase 7**
+- bật `Actuator` cho:
+  - `order-service`
+  - `inventory-service`
+  - `payment-service`
+- mở các endpoint:
+
+```http
+GET /actuator/health
+GET /actuator/metrics
+GET /actuator/prometheus
+```
+
+- tích hợp `lsf-observability-starter`
+- chuẩn hóa metrics/logs cho hai nhóm chính:
+
+**Quota**
+- `lsf.quota.reserve`
+- `lsf.quota.confirm`
+- `lsf.quota.release`
+
+**Outbox**
+- `lsf.outbox.append`
+- `lsf.outbox.sent`
+- `lsf.outbox.retry`
+- `lsf.outbox.fail`
+- `lsf.outbox.pending`
+
+- dựng thêm Prometheus scrape
+- dựng Grafana dashboard tối thiểu để nhìn thấy:
+  - reserve accepted / rejected
+  - confirm / release
+  - outbox sent / retry / fail
+  - pending gauge
+
+**Ý nghĩa**
+Observability giúp biến integration từ thứ “đọc code mới thấy” thành thứ “chạy demo là thấy”. Đây là phần nối tiếp tự nhiên của các phase trước: khi framework đã áp được vào flow thật, bước tiếp theo là phải quan sát được trạng thái vận hành của nó.
+
+---
+
+## 9. Before vs After bổ sung theo service và vai trò
+
+### 9.1. Order Service
+
+**Trước Phase 7**
+- đã có outbox append cho status event
+- đã có envelope topic riêng
+- nhưng thiếu khả năng admin/operate outbox một cách trực tiếp
+
+**Sau Phase 7**
+- tích hợp thêm `lsf-outbox-admin-starter`
+- expose API vận hành outbox
+- trở thành nơi không chỉ điều phối workflow và append event, mà còn là nơi cung cấp bằng chứng vận hành cho reliable publishing
+
+### 9.2. Inventory Service
+
+**Trước Phase 7**
+- đã reserve/confirm/release thông qua quota framework
+- business ownership của tài nguyên đã rõ hơn
+- nhưng lớp API/UI chưa tách đủ rõ “physical” và “available”
+
+**Sau Phase 7**
+- có thêm endpoint availability
+- có thêm khả năng truy vấn snapshot quota qua `QuotaQueryFacade` / `QuotaSnapshot`
+- trở thành nơi vừa sở hữu tài nguyên, vừa cung cấp được cách giải thích rõ ràng cho dữ liệu khả dụng
+
+### 9.3. Payment Service
+
+**Trước Phase 7**
+- tham gia flow reservation lifecycle gián tiếp qua payment success / fail
+- bằng chứng chủ yếu dựa trên status cuối và log
+
+**Sau Phase 7**
+- không đổi business role
+- nhưng tác động của payment success / fail được quan sát rõ hơn thông qua:
+  - availability sau reserve/release
+  - quota metrics confirm/release
+  - outbox metrics/status ở order-side
+
+### 9.4. Admin / Demo / Evidence layer
+
+**Trước Phase 7**
+- phần demo kỹ thuật còn phụ thuộc nhiều vào:
+  - log terminal
+  - query DB trực tiếp
+  - giải thích miệng
+
+**Sau Phase 7**
+- có thể demo theo chuỗi bằng chứng rõ ràng hơn:
+  - waiting page / trạng thái order
+  - availability theo SKU
+  - `/admin/outbox`
+  - Grafana dashboard
+  - DB/log chỉ dùng làm bằng chứng phụ
+
+---
+
+## 10. Các kịch bản test/evidence được mở rộng sau Phase 7
+
+Ngoài các kịch bản đã nêu ở các mục trước, Phase 7 cho phép chứng minh tốt hơn các case sau:
+
+### 10.1. Happy path đầy đủ
+```text
+reserve thành công -> payment success -> confirm -> status append vào outbox -> outbox publish thành công
+```
+
+Bằng chứng có thể mở:
+- waiting page success
+- availability theo SKU
+- `/admin/outbox`
+- Grafana panel quota / outbox
+
+### 10.2. Reserve reject
+```text
+reserve bị reject -> order fail sớm -> không giữ tài nguyên sai cách
+```
+
+Bằng chứng có thể mở:
+- trạng thái order lỗi
+- availability theo SKU
+- panel quota reserve rejected
+
+### 10.3. Payment fail -> release
+```text
+reserve thành công -> payment fail -> release reservation -> available stock tăng lại
+```
+
+Bằng chứng có thể mở:
+- waiting page nhánh lỗi
+- availability sau fail
+- log `QUOTA RELEASE`
+- panel release
+
+### 10.4. Outbox failure / recovery
+```text
+append outbox -> mark failed / requeue -> retry thành công hoặc trạng thái thay đổi đúng
+```
+
+Bằng chứng có thể mở:
+- `/admin/outbox`
+- detail theo `eventId`
+- outbox metrics retry/fail/pending
+
+---
+
+## 11. Ý nghĩa học thuật và thực tiễn của phần mở rộng Phase 7
+
+Nếu các phase trước trả lời câu hỏi:
+- framework có áp được vào consumer project thật hay không?
+- framework có thay được các concern dùng chung hay không?
+
+thì Phase 7 trả lời thêm các câu hỏi:
+- sau khi tích hợp, hệ thống có **vận hành và quan sát** được không?
+- consumer project có **giải thích rõ semantics dữ liệu** hay không?
+- có đủ bằng chứng để **demo/bảo vệ** mà không phụ thuộc hoàn toàn vào log hay không?
+
+Như vậy, phần mở rộng này không thay đổi luận điểm gốc của tài liệu, mà làm cho luận điểm đó đầy đủ hơn ở ba lớp:
+1. **integration** — framework đã được áp dụng
+2. **operation** — frameworkized flow đã vận hành được
+3. **evidence** — frameworkized flow đã quan sát và chứng minh được
+
+---
+
+## 12. Kết luận bổ sung
+
+Sau khi nối tiếp từ Phase 5.2 sang Phase 7, hệ thống ecommerce không chỉ dừng ở mức:
+- dùng starter cho Kafka
+- dùng quota cho reservation lifecycle
+- dùng outbox cho reliable event publishing
+- tách topic envelope để xử lý contract evolution
+
+mà còn tiến thêm sang mức:
+- có outbox admin để vận hành
+- có availability semantics để tránh hiểu nhầm tồn kho
+- có observability để nhìn thấy quota/outbox flow
+- có dashboard và evidence để trình bày rõ giá trị của framework
+
+Đây là phần hoàn thiện tự nhiên của quá trình tích hợp: từ **thay đổi code và flow**, sang **thay đổi cách hệ thống được vận hành, quan sát và giải thích**.
