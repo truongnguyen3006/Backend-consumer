@@ -2,6 +2,19 @@
 
 Backend này không được dùng để xây một hệ ecommerce đầy đủ tính năng, mà là **consumer project** để kiểm chứng framework **LSF** trong một hệ microservices thực tế. Trọng tâm của repo là cho thấy khi áp LSF vào flow đặt hàng, hệ thống đã thay đổi như thế nào ở các phần: **reservation lifecycle**, **reliable event publishing**, **observability** và **admin/ops support**.
 
+## Lưu ý quan trọng trước khi chạy
+
+Repo này là **consumer project** đã tích hợp một phần framework **LSF**.  
+Vì vậy, nếu clone riêng repo này thì **chưa đủ để build ngay**, do một số dependency `com.myorg.lsf:*` đang dùng version `1.0-SNAPSHOT`.
+
+Để chạy local đúng cách, cần:
+
+1. clone repo framework `LSF-Microservices-Support-Framework`
+2. build và install framework vào local Maven repository
+3. sau đó mới build/chạy repo `Backend-consumer`
+
+Nói ngắn gọn: repo này dùng để chứng minh **framework đã được áp dụng vào hệ ecommerce**, không phải một repo hoàn toàn độc lập với framework.
+
 ## LSF đã được áp vào đâu
 
 | Service | Module LSF đã dùng | Vai trò trong hệ thống |
@@ -76,7 +89,25 @@ và:
 ```text
 update DB rồi gửi Kafka trực tiếp -> append to outbox -> publisher gửi nền
 ```
+## Yêu cầu môi trường
+
+- JDK 24 để build repo consumer hiện tại
+- Maven 3.9+
+- Docker và Docker Compose
+- Các port local còn trống: 3306, 6379, 8080, 8081, 8085, 8761, 9090, 9411
+
+> Lưu ý: framework LSF hiện để `maven.compiler.source/target=21`, còn consumer repo đang để `24`.
+> Nếu muốn giảm rủi ro cho người clone, nên đồng bộ các repo về cùng một version Java.
+
 ## Cách chạy local
+
+### 0. Cài framework LSF vào local Maven
+
+```bash
+git clone https://github.com/<your-account>/LSF-Microservices-Support-Framework.git
+cd LSF-Microservices-Support-Framework
+mvn clean install -DskipTests
+```
 
 ### 1. Clone project
 
@@ -112,6 +143,21 @@ Ví dụ:
 ```bash
 cd order-service
 mvn spring-boot:run
+```
+
+## Nếu gặp lỗi khi chạy lại từ đầu
+
+Vì repo dùng MySQL init script, Flyway migration và dữ liệu local để demo integration, đôi khi môi trường cũ có thể làm phát sinh lỗi như:
+
+- bảng đã tồn tại
+- Flyway schema history không khớp
+- dữ liệu cũ làm sai lệch kết quả benchmark
+
+Khi đó nên reset lại volume/container database rồi chạy lại từ đầu:
+
+```bash
+docker compose down -v
+docker compose up -d
 ```
 
 ## Kiểm thử tải với JMeter
