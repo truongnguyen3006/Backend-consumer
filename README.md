@@ -292,6 +292,7 @@ Body:
 ```
 
 Sau khi đăng nhập thành công, copy giá trị `access_token` từ response và thay vào `HTTP Header Manager` trong file `.jmx`.
+Nếu token hết hạn có thể login lại để lấy.
 
 ### Lưu ý khi benchmark
 
