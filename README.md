@@ -104,13 +104,22 @@ update DB rồi gửi Kafka trực tiếp -> append to outbox -> publisher gửi
 ```
 ## Yêu cầu môi trường
 
-- JDK 24 để build repo consumer hiện tại
+- JDK 24
 - Maven 3.9+
 - Docker và Docker Compose
-- Các port local còn trống: 3306, 6379, 8080, 8081, 8085, 8761, 9090, 9411
 
-> Lưu ý: framework LSF hiện để `maven.compiler.source/target=21`, còn consumer repo đang để `24`.
-> Nếu muốn giảm rủi ro cho người clone, nên đồng bộ các repo về cùng một version Java.
+## Cấu hình mặc định
+
+Project đã được khai báo sẵn cấu hình chạy local trong file `application.properties`, vì vậy sau khi tải source code về, bạn có thể chạy project ngay mà không cần tạo thêm file `.env` hoặc khai báo thêm biến môi trường cho Spring Boot.
+
+Tuy nhiên, để ứng dụng khởi động thành công, các dịch vụ phụ trợ như database, Redis, Kafka, Keycloak và các service liên quan phải đang chạy đúng với địa chỉ và cổng đã được cấu hình sẵn trong project.
+
+Nếu muốn thay đổi môi trường chạy, bạn có thể chỉnh trực tiếp các giá trị trong:
+
+- `src/main/resources/application.properties`
+- `docker-compose.yml` (nếu có sử dụng Docker Compose)
+
+> Lưu ý: file `.env.example` chỉ mang tính minh họa cho các thông số cấu hình thường dùng. Trong project này, Spring Boot sử dụng các giá trị đã được khai báo sẵn trong `application.properties`. Khi chạy local, có thể dùng trực tiếp các giá trị mặc định đó. Nếu muốn thay đổi môi trường chạy, hãy cập nhật các thông số tương ứng trong file cấu hình của ứng dụng.
 
 ## Cách chạy local
 
