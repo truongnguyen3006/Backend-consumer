@@ -348,7 +348,7 @@ Nên rà lại các điểm sau:
 ### Kịch bản 2: Tải đồng thời trên nhiều SKU
 
 #### JMeter Test Plan
-<img src="screenshots/multi_1000.png" alt="Admin" width="1513">
+<img src="screenshots/testplan_1000_lsf.png" alt="Admin" width="1513">
 
 #### JMeter Summary Report
 <img src="screenshots/multi_1000_lsf.png" alt="Admin" width="1511">
