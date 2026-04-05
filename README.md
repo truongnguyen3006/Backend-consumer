@@ -342,12 +342,15 @@ Nên rà lại các điểm sau:
 Dashboard outbox cho thấy cơ chế publish event qua outbox đang hoạt động thực tế dưới tải:
 - Outbox Append: 7867
 - Hệ thống đã ghi 7867 event vào bảng outbox.
-- Outbox Sent: 6461 \n
+- Outbox Sent: 6461
+  
 Một số lượng lớn event đã được publisher nền gửi thành công ra message broker.
 - Outbox Retry: 0
-- Outbox Fail: 0 \n
+- Outbox Fail: 0
+  
 Trong thời điểm chụp dashboard, chưa ghi nhận retry hoặc fail, cho thấy luồng publish đang ổn định.
 - Outbox Pending: 2148
+
 Vẫn còn một lượng event đang chờ xử lý tại thời điểm quan sát. Điều này là bình thường trong test tải cao, vì outbox publisher xử lý bất đồng bộ theo nhịp poll/batch.
 Ý nghĩa
 
@@ -358,12 +361,16 @@ Kết quả này cho thấy hệ thống đang thực hiện đúng mô hình: a
 
 Trong quá trình chạy test tải, dashboard quota cho thấy hệ thống đã thực thi đúng cơ chế reservation-based resource control thay vì trừ stock trực tiếp:
 - Quota Reserve Accepted: 1130
+  
 Hệ thống chấp nhận 1130 lượt giữ chỗ tài nguyên thành công.
 - Quota Reserve Rejected: 1142
+  
 Có 1142 lượt bị từ chối do vượt quá khả năng cấp phát, cho thấy cơ chế quota đang thực sự chặn các yêu cầu không hợp lệ thay vì để xảy ra oversell.
 - Quota Confirm OK: 91
+  
 Sau khi các bước xử lý tiếp theo hoàn tất (ví dụ thanh toán thành công), một phần reservation được xác nhận chính thức.
 - Quota Release OK: 37
+  
 Một số reservation đã được giải phóng đúng cách khi flow thất bại hoặc bị huỷ, cho thấy hệ thống có hỗ trợ release để trả lại tài nguyên.
 Ý nghĩa
 
