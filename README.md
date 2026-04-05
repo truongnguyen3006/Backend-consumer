@@ -342,10 +342,10 @@ Nên rà lại các điểm sau:
 Dashboard outbox cho thấy cơ chế publish event qua outbox đang hoạt động thực tế dưới tải:
 - Outbox Append: 7867
 - Hệ thống đã ghi 7867 event vào bảng outbox.
-- Outbox Sent: 6461
+- Outbox Sent: 6461 \n
 Một số lượng lớn event đã được publisher nền gửi thành công ra message broker.
 - Outbox Retry: 0
-- Outbox Fail: 0
+- Outbox Fail: 0 \n
 Trong thời điểm chụp dashboard, chưa ghi nhận retry hoặc fail, cho thấy luồng publish đang ổn định.
 - Outbox Pending: 2148
 Vẫn còn một lượng event đang chờ xử lý tại thời điểm quan sát. Điều này là bình thường trong test tải cao, vì outbox publisher xử lý bất đồng bộ theo nhịp poll/batch.
